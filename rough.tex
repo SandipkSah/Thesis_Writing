@@ -41,6 +41,7 @@
 \end{flushright}
 \vspace{10mm}
 
+
 \vspace*{40mm}
 \begin{center}
   \huge
@@ -276,23 +277,8 @@ Overall, the structure of the thesis is designed to guide the reader from the mo
 \section{Methodology}
 
 \subsection{Overview of Implementation}
-
-% The integration of the Deep Potential Molecular Dynamics (DeepMD) model into the High-Accuracy Large-scale Molecular Dynamics (HALMD) framework constitutes the core technical contribution of this thesis. The goal of the implementation is to enable HALMD to evaluate interatomic forces and potential energies directly from a trained DeepMD-kit v2 model—without relying on TensorFlow or the original Python runtime—thus allowing fully GPU-accelerated molecular dynamics simulations of binary alloy systems within HALMD’s native C++ and CUDA environment.
-
-% The implementation process follows a modular workflow that bridges the DeepMD and HALMD architectures. It consists of two main components: a Python-based parameter extraction stage and a C++/CUDA-based inference stage.
-
-% \textbf{1. Parameter Extraction (Python side).}  
-% The first step involves extracting the neural network parameters—weights, biases, and embedding coefficients—from the trained DeepMD-kit v2 model stored in the \texttt{frozen\_model.pb} file. This file contains a serialized TensorFlow computation graph representing the trained descriptor construction, filter (embedding) network, and fitting network. A custom Python utility script was developed using the TensorFlow API to traverse the graph structure, locate all relevant trainable variables, and export them in a structured and human-readable format (JSON or NumPy arrays). The extraction process ensures that all model parameters are preserved with full numerical precision, including the layer dimensions, activation functions, and cutoff parameters defined in the associated \texttt{input.json} file.
-
-% \textbf{2. Inference and Integration (C++/CUDA side).}  
-% Once extracted, the parameters are imported into HALMD’s modular potential interface. A new potential class, referred to as \texttt{deepmd\_potential}, was implemented in C++ to replicate the DeepMD inference process. This class reconstructs the descriptor pipeline—computation of \(R\)- and \(G\)-matrices, application of smooth cutoff functions, and formation of atomic descriptor vectors \(\mathbf{D}_i\)—directly within HALMD. The descriptor output is then propagated through the fully connected neural networks using the extracted weights and biases to compute per-atom energies. Forces are obtained analytically by differentiating the energy with respect to atomic coordinates using explicit derivative propagation through both the descriptor and network layers. 
-
-% HALMD’s existing GPU infrastructure was leveraged to parallelize the most computationally demanding operations, including neighbor-list construction, descriptor evaluation, and dense matrix multiplications within the neural network layers. By combining DeepMD’s learned potential surface with HALMD’s optimized CUDA kernels, the resulting implementation achieves efficient large-scale simulations of binary alloy systems while maintaining consistency with the original DeepMD-kit v2 predictions.
-
-% \textbf{3. Verification and Validation.}  
-% To ensure correctness, the C++ implementation was systematically validated against the original DeepMD Python inference. Energy and force predictions were compared for identical test configurations of binary alloy systems, and discrepancies were measured to confirm numerical consistency. Once verified, the integrated DeepMD potential in HALMD was used for production-level simulations, enabling the exploration of alloy thermodynamics and dynamics at near \textit{ab initio} accuracy.
-
-% Overall, the implementation strategy is designed to separate data extraction and inference logic. The Python stage ensures model transparency and compatibility with DeepMD-kit v2, while the C++ stage enables real-time evaluation within HALMD’s GPU-accelerated molecular dynamics engine. This modular design provides a scalable foundation for future extensions, including support for additional descriptor types or multi-GPU parallelization.
+% Outline of integration workflow between HALMD and DeepMD model.  
+% Python-based weight extraction and C++ inference replication.
 
 \subsection{Model Parameter Extraction}
 \subsubsection{Frozen Model Structure}

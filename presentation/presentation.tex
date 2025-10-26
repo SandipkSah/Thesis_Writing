@@ -1,0 +1,226 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{physics}
+\usepackage{booktabs}
+\usepackage{bm}
+
+\title[DeepMD–HALMD Integration]{Integration of Deep Potential Molecular Dynamics (DeepMD v2) into HALMD for Multi-Species Alloy Systems}
+\author{Sandip Kumar Sah}
+\institute[Universidade de Lisboa]{M.Sc. Computational Science, Freie Universität Berlin }
+\date{\today}
+
+\begin{document}
+
+%=====================================================
+% \begin{frame}
+% \titlepage
+% \end{frame}
+\begin{frame}
+  \titlepage
+  \vspace{1cm}
+  \begin{center}
+    \large \textbf{Supervisor:} Prof. Dr. Felix Höfling
+  \end{center}
+\end{frame}
+
+%=====================================================
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+%=====================================================
+\section{Motivation}
+
+\begin{frame}{Motivation}
+\begin{itemize}
+    \item Accurate interatomic potentials are crucial for Molecular Dynamics (MD).
+    \item Classical MD uses empirical potentials (LJ, EAM, etc.) – efficient but approximate.
+    \item \textbf{Ab initio MD (AIMD)} provides accuracy but is computationally expensive.
+    \item \textbf{Deep Neural Network (DNN) potentials} such as DeepMD bridge this gap:
+    \begin{itemize}
+        \item Learn potential energy surface (PES) from DFT data.
+        \item Achieve near-AIMD accuracy at MD speed.
+    \end{itemize}
+    \item Goal: Integrate DeepMD v2 potential inference into \textbf{HALMD} for efficient GPU-based alloy simulations.
+\end{itemize}
+\end{frame}
+
+%=====================================================
+\section{Objectives and Scope}
+
+\begin{frame}{Research Objectives}
+\begin{itemize}
+    \item Integrate DeepMD v2 potential into HALMD’s many-body potential module.
+    \item Reproduce energy and force predictions directly from extracted model parameters (\texttt{frozen\_model.pb}).
+    \item Support \textbf{multi-species alloy systems} with per-type embedding and fitting networks.
+    \item Maintain computational efficiency suitable for GPU-accelerated MD.
+\end{itemize}
+\end{frame}
+
+%=====================================================
+\section{Background}
+
+\begin{frame}{HALMD Software}
+\begin{itemize}
+    \item \textbf{HALMD (Highly Accelerated Large-scale Molecular Dynamics):}
+    \begin{itemize}
+        \item Modular C++/CUDA architecture.
+        \item Built-in GPU parallelism and neighbor list handling.
+        \item Flexible interface for two-body and many-body potentials.
+    \end{itemize}
+    \item Provides ideal infrastructure to embed neural-network potentials.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Deep Potential Molecular Dynamics (DeepMD v2)}
+\begin{itemize}
+    \item DeepMD decomposes total energy into atomic contributions:
+    \[
+    E = \sum_i E_i(\mathcal{R}_i)
+    \]
+    \item Each $E_i$ is predicted by a DNN mapping atomic environments $\mathcal{R}_i$ to energy.
+    \item Two main components:
+    \begin{enumerate}
+        \item \textbf{Filter (Embedding) Network} – encodes local atomic environment.
+        \item \textbf{Fitting Network} – maps descriptors to atomic energies.
+    \end{enumerate}
+    \item Supports \textbf{multi-type systems} with distinct networks per (center, neighbor) pair.
+\end{itemize}
+\end{frame}
+
+%=====================================================
+\section{Methodology Overview}
+
+\begin{frame}{Overview of Implementation}
+\begin{center}
+% \includegraphics[width=0.9\linewidth]{example-image-a}
+\end{center}
+\begin{itemize}
+    \item Workflow between HALMD and DeepMD:
+    \begin{enumerate}
+        \item Extract model weights and statistics from \texttt{frozen\_model.pb}.
+        \item Reproduce inference pipeline in C++.
+        \item Compute per-atom energies and forces in HALMD simulation loop.
+    \end{enumerate}
+\end{itemize}
+\end{frame}
+
+%=====================================================
+\section{Stage 1: Coordinate Normalization and Neighbor List}
+
+\begin{frame}{Normalization and Neighbor List Creation}
+\begin{itemize}
+    \item Wrap atomic coordinates into the primary periodic cell:
+    \[
+    \mathbf{r}'_i = \mathbf{H}(\mathbf{H}^{-1}\mathbf{r}_i - \lfloor \mathbf{H}^{-1}\mathbf{r}_i \rfloor)
+    \]
+    \item Create neighbor lists within cutoff radius $r_c$.
+    \item Ensures consistent local environments under periodic boundaries.
+    \item Step is essential before descriptor computation.
+\end{itemize}
+\begin{center}
+% \includegraphics[width=0.7\linewidth]{example-image-b}
+\end{center}
+\end{frame}
+
+%=====================================================
+\section{Stage 2: Descriptor Formation}
+
+\begin{frame}{Environment Matrix and Descriptor Construction}
+\begin{itemize}
+    \item Compute environment matrix $\mathbf{R}$ for each atom:
+    \[
+    \mathbf{R}_{ij} =
+    s(r_{ij})
+    \begin{bmatrix}
+        1/r_{ij} & r_{ij,x}/r_{ij}^2 & r_{ij,y}/r_{ij}^2 & r_{ij,z}/r_{ij}^2
+    \end{bmatrix}
+    \]
+    \item Apply smooth cutoff $s(r)$ to ensure differentiability.
+    \item Normalize $\mathbf{R}$ using species-specific mean and std.
+    \item Pass scalar component $\hat{s}_{ij} = 1/r_{ij}$ through \textbf{filter networks}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Descriptor Matrix Formation}
+\begin{itemize}
+    \item Embedding output $\mathbf{G} \in \mathbb{R}^{N_{\text{neigh}} \times M_1}$.
+    \item Descriptor in HALMD (explicit formulation):
+    \[
+    \mathbf{D}^{(i)} = \frac{1}{N_{\text{neigh}}^2}
+    \mathbf{G}^{\top} (\mathbf{R}\mathbf{R}^{\top}) \mathbf{G}_{<}
+    \]
+    \item Flattened vector $\mathcal{D}_i = \mathrm{vec}(\mathbf{D}^{(i)})$ is used for energy prediction.
+    \item HALMD performs these operations with \texttt{boost::ublas} for clarity and derivative consistency.
+\end{itemize}
+\end{frame}
+
+%=====================================================
+\section{Stage 3: Fitting Network and Energy Evaluation}
+
+\begin{frame}{Fitting Network Structure}
+\begin{itemize}
+    \item Each atom type $t_c$ has its own fitting MLP.
+    \item Hidden layers:
+    \[
+    \mathbf{x}^{(l+1)} =
+    \begin{cases}
+        \mathbf{x}^{(l)} + \texttt{idt}^{(l)} \odot \tanh(\mathbf{x}^{(l)}\mathbf{W}^{(l)}+\mathbf{b}^{(l)}), & \text{if residual present}, \\[5pt]
+        \tanh(\mathbf{x}^{(l)}\mathbf{W}^{(l)}+\mathbf{b}^{(l)}), & \text{otherwise.}
+    \end{cases}
+    \]
+    \item Final output (linear layer):
+    \[
+    E_i = \mathbf{x}^{(L)}\mathbf{W}^{(\text{final})} + \mathbf{b}^{(\text{final})} + b_{t_c(i)}
+    \]
+    \item Total potential energy:
+    \[
+    E_{\text{total}} = \sum_i E_i
+    \]
+\end{itemize}
+\end{frame}
+
+%=====================================================
+\section{Results and Discussion}
+
+\begin{frame}{Implementation Outcomes}
+\begin{itemize}
+    \item Full inference pipeline implemented in HALMD (C++).
+    \item Supports multiple atomic species (e.g., Cu–Ag alloys).
+    \item Accurately reproduces DeepMD energies and forces.
+    \item Maintains computational efficiency with GPU parallelism.
+\end{itemize}
+\begin{center}
+% \includegraphics[width=0.8\linewidth]{example-image-c}
+\end{center}
+\end{frame}
+
+%=====================================================
+\section{Conclusion}
+
+\begin{frame}{Conclusion}
+\begin{itemize}
+    \item Successfully integrated DeepMD v2 inference into HALMD.
+    \item Achieved energy and force consistency across Python and C++ implementations.
+    \item Extended HALMD to handle alloy systems with multi-type neural potentials.
+    \item Lays foundation for future work:
+    \begin{itemize}
+        \item Gradient-based force computation.
+        \item Fully GPU-optimized neural inference.
+        \item Integration with HALMD’s thermostat and ensemble modules.
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%=====================================================
+\begin{frame}
+\centering
+\Huge Thank You!
+\end{frame}
+
+\end{document}

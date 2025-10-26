@@ -1,0 +1,103 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{caption}
+
+\geometry{margin=1in}
+
+\title{Summary of Coordinate Normalization, Extension, and Neighbor List Construction}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{1. Normalization}
+\textbf{Goal:} Keep all atom positions inside the primary periodic box.
+
+Each atom has position $\mathbf{r}_i$ in real space and a simulation box defined by lattice vectors $\mathbf{a}, \mathbf{b}, \mathbf{c}$.
+
+We define the transformation matrix
+\[
+H = [\mathbf{a}, \mathbf{b}, \mathbf{c}]
+\]
+and convert each atom position into fractional coordinates:
+\[
+\mathbf{s}_i = H^{-1}\mathbf{r}_i
+\]
+The coordinates are then wrapped into the interval $[0,1)$:
+\[
+\mathbf{s}_i' = \mathbf{s}_i - \lfloor \mathbf{s}_i \rfloor
+\]
+and finally transformed back to real space:
+\[
+\mathbf{r}_i' = H \mathbf{s}_i'
+\]
+
+\textbf{Intuition:}  
+Atoms that leave the simulation box due to periodic boundary conditions are wrapped back into the primary cell.  
+This ensures all atoms lie within a single reference box for consistent neighbor searching.
+
+\bigskip
+
+\section*{2. Extension (Ghost Creation)}
+\textbf{Goal:} Recreate periodic images around the simulation box to ensure that every atom has all neighbors within a cutoff radius $r_{\text{cut}}$, even across boundaries.
+
+We first compute the face-to-face distances using the box vectors:
+\[
+n_{\text{buff}} = \left\lceil \frac{r_{\text{cut}}}{d_{\text{face}}} \right\rceil
+\]
+
+Then, for each periodic shift $(n_x, n_y, n_z)$ in the range $[-n_{\text{buff}}, +n_{\text{buff}}]$, we generate ghost atoms:
+\[
+\mathbf{r}_{i}^{(\text{ghost})} = \mathbf{r}_i' + n_x \mathbf{a} + n_y \mathbf{b} + n_z \mathbf{c}
+\]
+
+\textbf{Intuition:}  
+This replicates the box in all three directions.  
+Atoms near one boundary now see neighbors from the opposite boundary via these ghost atoms.
+
+\bigskip
+
+\section*{3. Neighbor List Construction}
+\textbf{Goal:} Identify all atoms (real and ghost) within the cutoff distance $r_{\text{cut}}$ for each central atom.
+
+For each atom $i$, compute pairwise distances:
+\[
+r_{ij} = \| \mathbf{r}_j^{(\text{extended})} - \mathbf{r}_i' \|
+\]
+We then:
+\begin{itemize}
+    \item Exclude self-interactions ($i = j$),
+    \item Sort all other atoms by distance,
+    \item Keep up to $\texttt{sel[type]}$ nearest neighbors for each atom type,
+    \item Store the results in the neighbor list array $nlist[i, j]$.
+\end{itemize}
+
+\textbf{Intuition:}  
+This defines the local atomic environment around each atom — which is later used by DeePMD to construct descriptors and compute energies.
+
+\bigskip
+
+\section*{Summary Table}
+
+\begin{center}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{2.5cm}|>{\raggedright\arraybackslash}p{3.5cm}|>{\raggedright\arraybackslash}p{5cm}|>{\raggedright\arraybackslash}p{3cm}|}
+\hline
+\textbf{Step} & \textbf{Function} & \textbf{Key Equation / Logic} & \textbf{Purpose} \\
+\hline
+Normalization & \texttt{normalize\_coord()} & $\mathbf{r}_i' = H(H^{-1}\mathbf{r}_i - \lfloor H^{-1}\mathbf{r}_i \rfloor)$ & Wrap atoms into primary box \\
+\hline
+Extension & \texttt{extend\_coord\_with\_ghosts()} & $\mathbf{r}_i^{(\text{ghost})} = \mathbf{r}_i' + n_x\mathbf{a}+n_y\mathbf{b}+n_z\mathbf{c}$ & Add periodic images \\
+\hline
+Neighbor List & \texttt{build\_neighbor\_list()} & Sort distances $\leq r_{\text{cut}}$, grouped by type & Identify local atomic environments \\
+\hline
+\end{tabular}
+\end{center}
+
+\end{document}

@@ -1,0 +1,103 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{physics}
+
+\geometry{margin=1in}
+\setlength{\parskip}{0.8em}
+
+\title{Computation of Atomic Descriptors in HALMD Integration of DeepMD-v2 Potentials}
+\author{Sandip Kumar Sah}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Computation of Atomic Descriptors}
+
+After the normalized environment matrices $\mathbf{R}^{(i)}$ are constructed, they are passed through the \textbf{embedding (filter) networks} to generate atomic-level features $\mathbf{G}$.  
+Each central atom $i$ is associated with multiple neighbor types (e.g., A, B, ...), and each pair $(t_c, t_n)$ of \textit{center type} and \textit{neighbor type} has a dedicated embedding MLP with shared parameters across atoms of the same type.
+
+\subsection*{Feedforward Embedding Network with Residual Rule}
+
+For a given pair $(t_c, t_n)$, the filter network consists of a stack of fully connected layers:
+\[
+\mathbf{h}^{(0)} = \mathbf{x}, \quad
+\mathbf{h}^{(l+1)} = \tanh(\mathbf{W}^{(l)} \mathbf{h}^{(l)} + \mathbf{b}^{(l)}),
+\]
+followed by an optional residual addition:
+\[
+\mathbf{h}^{(l+1)} \mathrel{+}= 
+\begin{cases}
+\mathbf{h}^{(l)}, & \text{if } \dim(\mathbf{h}^{(l+1)}) = \dim(\mathbf{h}^{(l)}),\\[6pt]
+[\mathbf{h}^{(l)}, \mathbf{h}^{(l)}], & \text{if } \dim(\mathbf{h}^{(l+1)}) = 2\times \dim(\mathbf{h}^{(l)}).
+\end{cases}
+\]
+This rule, called the \textbf{residual rule}, is an inherent property of DeepMD v2 and is automatically applied whenever the output and input dimensions satisfy one of the above conditions.  
+It stabilizes training and ensures better gradient flow, even though it is \textit{not explicitly specified} in the model configuration (\texttt{input.json}).  
+Hence, the same residual behavior must be reproduced exactly during inference in HALMD.
+
+\paragraph{Difference from a classical ResNet:}
+Unlike conventional residual networks (ResNets), which define explicit residual blocks (\( \mathbf{y} = f(\mathbf{x}) + \mathbf{x} \)), DeepMD applies this rule \textit{per layer} based solely on dimensional matching.  
+It has no separate projection layers or normalization operations.  
+The mechanism is thus simpler, shape-driven, and tailored for molecular descriptors.
+
+\subsection*{Shape of Variables}
+
+For each central atom $i$:
+\begin{itemize}
+  \item Normalized environment matrix: $\mathbf{R}^{(i)} \in \mathbb{R}^{N_{\mathrm{neigh}} \times 4}$ (4 columns: inverse distance and scaled components).
+  \item Embedding network output: $\mathbf{G}^{(i)} \in \mathbb{R}^{N_{\mathrm{neigh}} \times M_1}$, where $M_1$ is the output width of the final embedding layer.
+  \item Axis selection: $\mathbf{G}^{(i)}_{\text{lt}} = \mathbf{G}^{(i)}[:, :M_2]$ selects the first $M_2$ columns (\texttt{axis\_neuron}).
+\end{itemize}
+
+\subsection*{Descriptor Evaluation in HALMD}
+
+HALMD computes the atomic descriptor directly using explicit matrix multiplications rather than tensor contractions.  
+The mathematical expression implemented in HALMD is:
+\[
+\mathbf{D}^{(i)} = 
+\frac{1}{N_{\mathrm{neigh}}^2}\;
+\mathbf{G}^{\top}\,
+(\mathbf{R}\mathbf{R}^{\top})\,
+\mathbf{G}_{\text{lt}}.
+\]
+
+The computation proceeds as:
+\[
+\begin{aligned}
+\mathbf{R}\mathbf{R}^{\top} &\in \mathbb{R}^{N_{\mathrm{neigh}} \times N_{\mathrm{neigh}}},\\
+\mathbf{tmp} &= (\mathbf{R}\mathbf{R}^{\top}) \mathbf{G}_{\text{lt}},\\
+\mathbf{D}^{(i)} &= \frac{1}{N_{\mathrm{neigh}}^2} \mathbf{G}^{\top} \mathbf{tmp}.
+\end{aligned}
+\]
+
+Finally, the descriptor $\mathcal{D}_i$ is obtained by flattening $\mathbf{D}^{(i)}$ into a one-dimensional vector:
+\[
+\mathcal{D}_i = \operatorname{vec}(\mathbf{D}^{(i)}) \in \mathbb{R}^{M_1 M_2}.
+\]
+
+\paragraph{Implementation Notes:}
+\begin{itemize}
+    \item Although this approach requires more intermediate matrix operations than the original DeepMD tensor-based formulation, it is designed for readability and compatibility with HALMD’s internal data structures.
+    \item The explicit computation of $(\mathbf{R}\mathbf{R}^{\top})$ simplifies derivative calculations required for computing atomic forces.
+    \item The descriptor formation remains mathematically consistent with DeepMD v2, ensuring identical force and energy predictions when the same parameters are used.
+\end{itemize}
+
+\subsection*{Shape of the Final Descriptor}
+
+For each atom $i$:
+\[
+\mathcal{D}_i \in \mathbb{R}^{M_1 \times M_2} \quad \text{(matrix form)}, \qquad
+\text{or equivalently } \mathcal{D}_i \in \mathbb{R}^{M_1 M_2} \text{ (flattened vector)}.
+\]
+Typical parameter values (from trained alloy models) are:
+\[
+M_1 = 100, \quad M_2 = 16\text{--}32, \quad N_{\mathrm{neigh}} \approx 100.
+\]
+These descriptors are then passed to the fitting network to predict atomic energy contributions for multi-species alloy systems.
+
+\end{document}
