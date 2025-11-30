@@ -1,0 +1,36 @@
+Molecular dynamics (MD) simulations are indispensable for studying the structure, thermodynamics, and kinetics of materials at the atomic scale. Their predictive power depends fundamentally on the interatomic potential used to describe atomic interactions. Classical empirical potentials, while computationally efficient, are often too rigid to capture complex bonding, many-body effects, and chemical diversity. Ab initio molecular dynamics (AIMD), in contrast, delivers high accuracy but at a prohibitive computational cost. Bridging this gap—achieving quantum-level accuracy at classical performance—has driven the development of machine-learned interatomic potentials. Among these, the Deep Potential Molecular Dynamics (DeepMD) framework stands out for its accuracy, scalability, and ability to generate descriptors invariant under translation, rotation, and permutation of atoms.
+
+The previous Master’s thesis by Andrés, grounded in the DeepMD-v2 methodology , accomplished an important first step by integrating a Deep Potential model into the HALMD simulation engine. His work reconstructed the DeePMD inference process inside HALMD, extracted neural-network parameters from a trained model, and validated energy and force computations for a single-component system. This demonstrated that HALMD could operate independently of TensorFlow and opened the door for coupling machine-learned potentials with a high-performance, GPU-accelerated MD framework.
+
+However, Andrés’ implementation was intentionally limited to the simplest scenario:
+
+a monoatomic system with
+
+a single embedding network,
+
+no species dependence, and
+
+a reduced descriptor pipeline that omitted several steps required for full DeepMD-v2 accuracy.
+
+As a result, while the proof of concept was successful, the implementation could not yet support multi-species systems, advanced descriptor architectures, or the strict accuracy guarantees of the full DeepMD-v2 formulation.
+
+This thesis builds directly on Andrés’ work and significantly advances it in two directions.
+First, it extends the HALMD integration from a one-species descriptor to a fully general multi-species, multi-body DeepMD-v2 implementation. This enables simulations of binary and multi-component alloys, which require species-dependent embeddings, type embedding networks, block-structured neighbor lists, and complex descriptor computation involving smooth switching functions, species-aware embeddings, and multi-body terms.
+
+Second, this thesis improves the accuracy of the existing implementation by incorporating several intermediate computational steps from the DeepMD-v2 algorithm that were missing or simplified in Andrés’ version. These include:
+
+full reconstruction of the R- and G-matrix pipelines,
+
+correct handling of cutoff smoothing,
+
+species-dependent or type-embedded embedding networks,
+
+full DeepPot-SE descriptor evaluation including missing normalization and scaling operations,
+
+corrected backpropagation through descriptor derivatives, and
+
+precise enforcement of DeepMD’s smoothness and invariance conditions.
+
+By adding these missing components, the present work achieves a much closer correspondence to the original DeepMD-kit inference, substantially reducing deviations in predicted energies and forces and improving overall numerical fidelity.
+
+Taken together, these contributions elevate the HALMD–DeepMD interface from a minimal single-species prototype to a fully functional, high-accuracy, multi-species Deep Potential engine. This makes HALMD capable of performing large-scale molecular dynamics simulations of technologically relevant materials—such as alloys, multi-component metallic systems, ionic compounds, and more—at near–quantum mechanical accuracy.

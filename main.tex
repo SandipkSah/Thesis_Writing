@@ -27,7 +27,7 @@
   pdfauthor = {\myname},
   pdftitle = {\mytitle},
   colorlinks = {true},
-  linkcolor = {blue}
+  linkcolor = {black}
 }
 
 \addbibresource{references.bib}
@@ -63,7 +63,7 @@
 \vfill
 \begin{flushleft}
   \large
-  Submission: \today \hfill Supervisor: \mysupervisor \\
+  Submission: {09 January 2026} \hfill Supervisor: \mysupervisor \\
   \rule{\textwidth}{1pt}
 \end{flushleft}
 \begin{center}
@@ -149,54 +149,98 @@ A concise 200–300 word summary of:
 \section{Introduction}
 \subsection{Motivation}
 
-% Molecular dynamics (MD) simulations are a fundamental computational tool in materials science and condensed matter physics, providing atomistic insight into the structure, thermodynamics, and kinetics of matter. The accuracy of such simulations crucially depends on the quality of the underlying interatomic potential, which defines how atoms interact with one another. Traditionally, two main classes of potentials have been employed: empirical force fields and \emph{ab initio} methods.
+Molecular dynamics (MD) simulations play a central role in materials science by providing atomistic insight into the behavior of complex systems. Their predictive power depends on the interatomic potential used to approximate the underlying potential energy surface (PES). Classical empirical potentials are efficient but often too rigid to describe complex bonding environments, whereas \textit{ab initio} methods offer high accuracy at prohibitive computational cost. Machine-learned interatomic potentials---particularly the Deep Potential Molecular Dynamics (DeepMD) framework---bridge this gap by achieving near--quantum mechanical accuracy with classical-MD performance.
 
-% Classical potentials are computationally efficient and allow simulations of systems containing millions of atoms over long timescales. However, their analytical forms are typically limited in flexibility and fail to capture complex bonding environments, charge transfer, or many-body effects, leading to limited transferability beyond the conditions for which they were fitted. 
+The work by Andrés Cruz, titled \textit{``Deep Neural Networks Potentials for Scalable Molecular Dynamics Simulations on Accelerator Hardware''} \cite{cruz2025deepmd}, represents an important step toward integrating Deep Potential models into the high-performance GPU-accelerated simulation engine HALMD. His work reconstructs the DeePMD-kit inference pipeline inside HALMD, extracts network weights from a trained TensorFlow model, and validates energy and force predictions for a \textbf{single-species Copper system}. In particular, his implementation focuses on the \textbf{two-body embedding DeepPot-SE descriptor} and reproduces the filter and fitting networks \textbf{only for a monoatomic system}, making it suitable for single metal.
 
-% In contrast, \emph{ab initio} molecular dynamics (AIMD), typically based on density functional theory (DFT), achieves remarkable accuracy by explicitly solving the electronic structure problem. Yet, this accuracy comes at a prohibitive computational cost, restricting simulations to only a few hundred atoms and short timescales on the order of picoseconds. Bridging the gap between these two extremes—achieving \emph{ab initio}-level accuracy at classical MD efficiency—remains a central challenge in computational materials science.
+However, the implementation in \cite{cruz2025deepmd} remains limited to the simplest case of DeepMD-v2 architectures. It does not include multi-species support or the full range of descriptor and network features available in DeepMD-kit v2. 
+% \begin{itemize}
+%     \item multi-species support,
+%     \item species-dependent neighbor counts $N_c(a)$,
+%     \item type embedding networks,
+%     \item species-aware embedding matrices $G_i$,
+%     \item the general multi-species DeepPot-SE (se\_e2\_a) descriptor,
+%     \item or complex multi-body interactions required for alloys or chemically diverse systems.
+% \end{itemize}
 
-% Recent advances in machine learning (ML) and, in particular, deep neural networks (DNNs) have led to the emergence of \emph{neural network potentials} (NNPs), which learn the complex mapping between atomic configurations and their corresponding energies and forces from high-fidelity \emph{ab initio} data. Among these approaches, the Deep Potential Molecular Dynamics (DeepMD) framework has demonstrated exceptional accuracy and scalability by constructing descriptors that are invariant under translation, rotation, and permutation of atoms. DeepMD allows one to perform MD simulations with quantum-level accuracy while maintaining computational efficiency close to that of empirical potentials.
+Additionally, several intermediate steps present in the full DeepMD-v2 computational graph---such as normalization layers, ghost body extension for periodicity in boundary condition, species-wise descriptor partitioning, and certain derivative pathways---were simplified or omitted in the previous implementation. Cruz's work successfully established a working single-species DeepMD integration within HALMD.
 
-% However, despite these advances, integrating such data-driven potentials into high-performance MD frameworks remains challenging. Existing implementations of DeepMD are optimized for standalone usage and rely heavily on TensorFlow-based infrastructures, which are not always ideal for coupling with established GPU-accelerated MD engines. The High-Accuracy Large-scale Molecular Dynamics (HALMD) package provides a powerful alternative: it is a modular, GPU-accelerated simulation framework designed for high precision, extensibility, and large-scale simulations. 
+\textbf{This work builds directly on the work of Cruz \cite{cruz2025deepmd} and advances it substantially.} The primary contributions of the present work are:
+\begin{enumerate}
+    \item Generalizing the HALMD Deep Potential integration to \textbf{multi-species, multi-body DeepMD-v2 models}, enabling simulations of binary and multicomponent alloy systems.
+    \item Reconstructing descriptor and fitting networks for the \textbf{full multi-species DeepPot-SE architecture}, including multi-body descriptor terms.
+    \item Improving the \textbf{accuracy} of the HALMD implementation by adding several computational steps missing in the previous work, such as proper cutoff normalization, multi-species descriptor algebra, and the full force backpropagation pipeline.
+\end{enumerate}
 
-% This motivates the present work, which aims to integrate the DeepMD potential evaluation pipeline directly into HALMD. By embedding a deep neural-network potential within HALMD’s efficient GPU architecture, this thesis seeks to achieve a fast and scalable MD implementation capable of simulating alloy systems with near \emph{ab initio} accuracy.
+Through these extensions, the present thesis transforms HALMD from supporting a prototype single-component DeepMD potential into a \textbf{fully general, high-accuracy, multi-species DeepMD-v2 engine}. This significantly broadens HALMD's applicability, enabling large-scale molecular dynamics simulations of technologically relevant multicomponent materials at near--quantum mechanical accuracy.
+
+
+
+% \subsection{Objectives and Scope}
+
+% The objective of this thesis is to extend and generalize the Deep Potential (DP) implementation in HALMD beyond the single-species, two-body descriptor developed by Cruz \cite{cruz2025deepmd}. While Cruz's work successfully demonstrated that HALMD can evaluate a DeePMD-v2 model for a monoatomic copper system, several components required for full multi-species DeepMD-v2 inference were missing. Most notably, the previous implementation did not include (i)  the periodic coordinate extension and neighbor-list, (ii) normalization layers, (iii), species-dependent descriptors, or (iv) weights dependent on both central and neighbor species
+
+% This thesis addresses these limitations by implementing the complete multi-species DeepMD-v2 inference pipeline, including accurate periodic handling of atomic environments. Specifically, the thesis pursues the following objectives:
+
+% \begin{enumerate}
+
+%     \item \textbf{Implement coordinate normalization, ghost-cell extension, and multi-type neighbor list construction.}  
+%     The previous implementation did not include the canonical DeePMD workflow for periodic systems (wrapping atoms into the primary simulation box, generating ghost atoms to cover the cutoff radius, and constructing species-grouped neighbor lists). :
+%     This ensures that HALMD reproduces the correct local environments required by the DeepPot-SE descriptors under periodic boundary conditions.
+
+%     \item \textbf{Generalize the descriptor pipeline to multi-species systems.}  
+%     This includes implementing species-dependent neighbor counts $N_c(a)$, species-aware embedding matrices $G_i$, and the complete multi-species DeepPot-SE (se\_e2\_a) descriptor.
+
+%     \item \textbf{Implement species-dependent filter networks.}  
+%     Extend the single-species embedding network used in \cite{cruz2025deepmd} to support arbitrary numbers of atomic types through species-indexed filter networks, and species-aware descriptor algebra.
+
+%     \item \textbf{Reproduce the full DeepMD-v2 inference procedure with higher accuracy.}  
+%     Incorporate several computational steps omitted in previous work, including normalization layers, descriptor scaling, smoothing functions, and complete force backpropagation through descriptor derivatives.
+
+%     \item \textbf{Validate energy and force predictions for multi-component systems.}  
+%     Compare results from HALMD against the DeePMD-kit reference implementation for multi-species models and quantify numerical deviations.
+
+% \end{enumerate}
+
+% \noindent\textbf{Scope.}  
+% This thesis focuses exclusively on the inference stage of DeepMD-v2, i.e., the computation of energies and forces from pre-trained models. Model training is outside the scope of this work. The implementation targets the multi-species DeepPot-SE descriptor and does not cover other descriptor families. The work provides support for multi-species atomic systems relevant to alloys and chemically complex materials, but the molecular dynamics algorithms (integrators, thermostats, barostats) rely on HALMD's existing infrastructure.
 
 \subsection{Objectives and Scope}
 
-% The primary objective of this thesis is to integrate a deep neural-network potential, trained using the Deep Potential Molecular Dynamics (DeepMD) framework, into the High-Accuracy Large-scale Molecular Dynamics (HALMD) software. The goal is to enable HALMD to compute interatomic forces and potential energies based on a machine-learned representation of the potential energy surface, thereby combining the quantum-level accuracy of \textit{ab initio} methods with the computational efficiency of classical molecular dynamics.
+The objective of this thesis is to extend and generalize the Deep Potential (DP) implementation in HALMD beyond the single-species, two-body descriptor developed by Cruz \cite{cruz2025deepmd}. While Cruz's work successfully demonstrated that HALMD can evaluate a DeePMD-v2 model for a monoatomic copper system, several components required for full multi-species DeepMD-v2 inference were missing. Most notably, the previous implementation did not include (i) the periodic coordinate extension and neighbor-list construction used in DeepMD \cite{wang2018deepmd}, (ii) normalization and scaling layers defined in the DP-v2 framework \cite{zeng2023deepmdv2}, (iii) species-dependent descriptors, or (iv) descriptor and filter weights that depend simultaneously on the central and neighbor species, as introduced in the multi-species DeepPot-SE descriptor \cite{zeng2023deepmdv2}.
 
-% To achieve this objective, the first step involves extracting the complete set of parameters—weights, biases, and embedding coefficients—from a trained DeepMD model. These parameters define the neural network architecture responsible for mapping local atomic environments to atomic energy contributions. By reproducing this mapping directly within HALMD, the force and energy predictions can be generated independently of the TensorFlow runtime, allowing for tight integration within HALMD’s C++ and CUDA-based computational framework.
+This thesis addresses these limitations by implementing the complete multi-species DeepMD-v2 inference pipeline, including accurate periodic handling of atomic environments. Specifically, the thesis pursues the following objectives:
 
-% A major focus of this work is the faithful replication of the DeepMD inference process. This includes implementing the descriptor construction (based on the relative atomic coordinates and cutoff functions), the embedding network, and the fitting network. The network’s outputs are validated against the original DeepMD-kit implementation to ensure consistency in computed energies and forces for test configurations.
+\begin{enumerate}
 
-% Beyond functional correctness, this project emphasizes computational performance and scalability. The integration is designed to exploit HALMD’s existing GPU-accelerated infrastructure for neighbor-list construction and force computation. This ensures that the deep neural-network potential can be evaluated efficiently for large systems, maintaining simulation throughput comparable to conventional analytical potentials.
+    \item \textbf{Implement coordinate normalization, ghost-cell extension, and multi-type neighbor list construction.}  
+    The previous implementation did not include the canonical DeePMD preprocessing steps for periodic systems---wrapping coordinates into the primary simulation cell, generating ghost atoms to cover the cutoff radius, and constructing species-grouped neighbor lists---as described in the DeePMD methodology \cite{wang2018deepmd, zeng2023deepmdv2}.  
+    Implementing these steps ensures that HALMD reproduces the correct local environments required by the DeepPot-SE descriptors under periodic boundary conditions.
 
-% The scope of this study is limited to the inference phase of the DeepMD model—i.e., the evaluation of energies and forces from a pre-trained network. Training of neural-network potentials, data generation from \textit{ab initio} calculations, and retraining of models are outside the scope of this work. The developed implementation is validated through simulations of alloy systems, where accuracy and computational performance are benchmarked against the reference DeepMD-kit outputs.
+    \item \textbf{Generalize the descriptor pipeline to multi-species systems.}  
+    This includes implementing species-dependent neighbor counts $N_c(a)$, species-aware embedding matrices $G_i$, and the full multi-species DeepPot-SE (se\_e2\_a) descriptor introduced in DP-v2 \cite{zeng2023deepmdv2}.
 
-\subsection{Structure of the Thesis}
+    \item \textbf{Implement species-dependent filter networks.}  
+    Extend the single-species embedding and filter networks used in \cite{cruz2025deepmd} to support arbitrary numbers of atomic types, following the species-indexed filter network formulation defined in the DP-v2 architecture \cite{zeng2023deepmdv2}.
 
-This thesis is organized into six main sections, each addressing a distinct aspect of the integration of deep neural-network potentials into the HALMD simulation framework for binary alloy systems.
+    \item \textbf{Reproduce the full DeepMD-v2 inference procedure with higher accuracy.}  
+    Incorporate several computational steps omitted in previous work, including normalization layers, descriptor scaling operations, smooth cutoff functions, and full force backpropagation through descriptor derivatives, consistent with the DeepMD-v2 formulation \cite{zeng2023deepmdv2, wang2018deepmd}.
 
-\textbf{Section 1: Introduction} presents the motivation for employing machine-learned interatomic potentials in molecular dynamics, highlighting the limitations of traditional analytical models and the potential of deep learning to achieve \textit{ab initio}-level accuracy at a fraction of the computational cost. The objectives and scope of the work are defined, followed by an outline of the thesis structure.
+    \item \textbf{Validate energy and force predictions for multi-component systems.}  
+    Compare results from HALMD against the DeePMD-kit reference implementation for multi-species models and quantify numerical deviations, following standard validation procedures established in DeepMD literature \cite{wang2018deepmd, zeng2023deepmdv2}.
 
-\textbf{Section 2: Background} introduces the theoretical and computational foundations of the work. It provides an overview of the HALMD software, describing its modular design, GPU acceleration, and classical molecular dynamics formulation. The section also discusses the Deep Potential Molecular Dynamics (DeepMD) framework, including the principles of neural-network potentials, descriptor construction, and the overall architecture of the Deep Potential model for multi-species systems such as alloys.
+\end{enumerate}
 
-\textbf{Section 3: Methodology} details the integration process of the DeepMD potential into HALMD. It explains the extraction of model parameters (weights, biases, and descriptors) from a trained DeepMD model, the reconstruction of the descriptor pipeline (R and G matrices), and the implementation of the neural network inference and force computation within HALMD. Special attention is given to the treatment of multiple atomic species and the efficient GPU-based execution of the potential evaluation.
-
-\textbf{Section 4: Results} presents the outcomes of the integration. This includes validation of the energy and force predictions against reference DeepMD-kit calculations, performance benchmarks of the HALMD implementation on GPU hardware, and case studies of binary alloy systems. The accuracy, scalability, and computational efficiency of the implementation are systematically analyzed.
-
-\textbf{Section 5: Discussion} interprets the results, addressing the accuracy–performance trade-offs, sources of deviation between HALMD and DeepMD outputs, and the numerical stability of the approach. It also highlights the implications of using neural-network potentials in multi-component systems.
-
-\textbf{Section 6: Conclusions and Future Work} summarizes the key contributions of the thesis and discusses possible directions for future development. Potential extensions include optimized GPU kernels, support for additional descriptor types, and extension of the implementation to more complex alloy systems beyond binaries.
-
-Overall, the structure of the thesis is designed to guide the reader from the motivation and theoretical foundations through the detailed implementation and validation of a high-performance, machine-learned potential within the HALMD framework.
+\noindent\textbf{Scope.}  
+This thesis focuses exclusively on the inference stage of DeepMD-v2, i.e., the computation of energies and forces from pre-trained models. Model training is outside the scope of this work. The implementation targets the multi-species DeepPot-SE descriptor and does not cover other descriptor families such as end-to-end or message-passing potentials. The work provides support for multi-species atomic systems relevant to alloys and chemically complex materials, while the underlying molecular dynamics algorithms (integrators, thermostats, barostats) rely on HALMD's existing infrastructure.
 
 
-% ===============================
+
+% % ===============================
 \section{Background}
-\subsection{HALMD Software}
+% \subsection{HALMD Software}
 
-% The High-Accuracy Large-scale Molecular Dynamics (HALMD) package is a high-performance, open-source molecular dynamics (MD) simulation framework developed to study the microscopic dynamics of liquids, glasses, and other condensed matter systems. HALMD is designed around a modular C++ architecture with a strong emphasis on numerical precision, extensibility, and efficient parallel computation on graphics processing units (GPUs). It provides a versatile platform for conducting large-scale classical molecular dynamics simulations involving millions of particles.
+% The High-Accuracy Large-scale Molecular Dynamics (HALMD) package is a high-performance, open-source molecular dynamics (MD) simulation framework developed to study the microscopic dynamics of liquids, glasses, and other condensed matter systems. HALMD is designed around a modular C++ architecture with a strong emphasis on numerical precision, extensibility, and efficient parallel computation on graphics processing units (GPUs)\cite{colberg2011highly}. It provides a versatile platform for conducting large-scale classical molecular dynamics simulations involving millions of particles.
 
 % HALMD employs the \textit{classical molecular dynamics} approach, in which atomic motion is governed by Newton’s equations of motion,
 % \[
@@ -204,13 +248,31 @@ Overall, the structure of the thesis is designed to guide the reader from the mo
 % \]
 % where \( U \) is a predefined potential energy function describing interatomic interactions. The accuracy of a classical MD simulation is determined by the analytical form of this potential. HALMD provides several built-in potentials such as Lennard-Jones, Gaussian Core, and Yukawa models, and also supports tabulated pair potentials that can be customized by the user. These potentials are purely empirical and do not involve electronic structure calculations, distinguishing HALMD from \textit{ab initio} molecular dynamics (AIMD) methods, which derive forces directly from quantum-mechanical computations.
 
-% One of HALMD’s defining features is its high-performance GPU implementation. The software utilizes NVIDIA’s CUDA and, more recently, SYCL for heterogeneous computing to accelerate computationally intensive tasks such as force evaluation, neighbor-list construction, and time integration. Through domain decomposition and spatial cell binning, HALMD efficiently scales to very large systems, achieving orders-of-magnitude speedups compared to single-core CPU implementations. It also supports mixed-precision arithmetic, applying double precision selectively to ensure long-term numerical stability without sacrificing performance.
+% One of HALMD’s defining features is its high-performance GPU implementation. The software utilizes NVIDIA’s CUDA and, to accelerate computationally intensive tasks such as force evaluation, neighbor-list construction, and time integration. Through domain decomposition and spatial cell binning, HALMD efficiently scales to very large systems, achieving orders-of-magnitude speedups compared to single-core CPU implementations. It also supports mixed-precision arithmetic, applying double precision selectively to ensure long-term numerical stability without sacrificing performance.
 
 % HALMD follows a modular design philosophy. Core components—such as integrators, potential functions, and observables—are implemented as interchangeable modules, which can be dynamically configured through a Lua scripting interface. This modularity facilitates the addition of new functionalities, such as custom interaction potentials or data analysis routines, without modifying the main codebase. Simulation data and trajectories are stored in the H5MD format, an HDF5-based standard that ensures compatibility with a wide range of analysis tools.
 
 % These characteristics make HALMD an ideal foundation for extending molecular dynamics simulations with machine-learned interatomic potentials. In this work, HALMD serves as the host MD engine into which the Deep Potential Molecular Dynamics (DeepMD) model is integrated. The goal is to replace conventional analytical potentials with neural-network-based force fields that reproduce \textit{ab initio}-level accuracy while leveraging HALMD’s GPU-accelerated framework for computational efficiency.
 
-\subsection{Neural Network Potentials}
+
+\subsection{HALMD Software}
+
+The High-Accuracy Large-scale Molecular Dynamics (HALMD) package is a high-performance, open-source molecular dynamics (MD) simulation framework designed to study the microscopic dynamics of liquids, glasses, and other condensed matter systems. HALMD is built around a modular C++ architecture with a strong emphasis on numerical precision, extensibility, and efficient parallel computation on graphics processing units (GPUs) \cite{colberg2011highly}. It provides a versatile platform for conducting large-scale classical molecular dynamics simulations involving millions of particles.
+
+HALMD employs the \textit{classical molecular dynamics} approach, in which atomic motion is governed by Newton’s equations of motion,
+\[
+m_i \frac{d^2 \mathbf{r}_i}{dt^2}
+= - \nabla_i U(\mathbf{r}_1, \mathbf{r}_2, \ldots, \mathbf{r}_N),
+\]
+where \( U \) is a predefined analytical potential describing interatomic interactions. The accuracy of a classical MD simulation depends on the fidelity of this potential. HALMD supports several built-in empirical pair potentials, such as Lennard–Jones, Gaussian Core, and Yukawa models, and additionally allows users to supply tabulated pair potentials. These empirical models do not involve quantum-mechanical calculations and thus differ from \textit{ab initio} molecular dynamics (AIMD), where forces are computed directly from electronic structure methods.
+
+One of HALMD’s defining strengths is its high-performance GPU backend. The software employs NVIDIA’s CUDA to accelerate computationally intensive tasks such as force evaluation, neighbor-list construction, and time integration \cite{colberg2011highly}, and more recent versions extend support to heterogeneous computing platforms through SYCL \cite{halmdGithub}. Spatial domain decomposition and cell binning enable efficient scaling on multi-GPU systems, achieving orders-of-magnitude speedups compared to CPU-only implementations. HALMD also supports mixed-precision arithmetic, selectively applying double precision to critical operations to ensure long-term numerical stability without compromising performance.
+
+HALMD follows a modular design philosophy. Core components—integrators, interaction potentials, neighbor-list builders, and observables—are implemented as interchangeable modules configurable through a Lua scripting interface \cite{halmdManual}. This modularity makes it straightforward to extend HALMD with new functionality, including custom potentials, analysis routines, and data exporters. Simulation data are stored in the H5MD format \cite{debuyl2014h5md}, an HDF5-based standard widely supported by analysis tools in computational physics and chemistry.
+
+These characteristics make HALMD an ideal platform for integrating machine-learned interatomic potentials. Its GPU-accelerated, modular architecture provides the necessary infrastructure to replace conventional analytical potentials with neural-network-based force fields. In this thesis, HALMD serves as the host MD engine into which the Deep Potential Molecular Dynamics (DeepMD) model is embedded. The goal is to achieve \textit{ab initio}-level accuracy within HALMD’s efficient large-scale simulation framework by implementing a full multi-species DeepMD-v2 inference pipeline.
+
+% \subsection{Neural Network Potentials}
 
 % In recent years, machine learning techniques—particularly deep neural networks (DNNs)—have revolutionized the construction of interatomic potentials for molecular dynamics simulations. Traditional analytical potentials, while computationally efficient, are often limited in their ability to accurately capture many-body interactions and chemical complexities across diverse atomic environments. Neural Network Potentials (NNPs) overcome these limitations by learning the potential energy surface (PES) directly from \textit{ab initio} reference data, typically obtained from density functional theory (DFT) or \textit{ab initio} molecular dynamics (AIMD).
 
@@ -233,7 +295,45 @@ Overall, the structure of the thesis is designed to guide the reader from the mo
 % A variety of NNP architectures have been proposed, including Behler–Parrinello networks, Gaussian approximation potentials (GAP), SchNet, and Neural Equivariant Interatomic Potentials (NequIP). Among these, the Deep Potential Molecular Dynamics (DeepMD) framework has emerged as one of the most widely adopted and computationally efficient implementations, owing to its smooth descriptor formulation, scalability, and native GPU support. The following subsection focuses specifically on \textbf{DeepMD-kit version 2}, which forms the theoretical and computational foundation for the present work.
 
 
-\subsection{Deep Potential Molecular Dynamics (DeepMD)}
+\subsection{Neural Network Potentials}
+
+In recent years, machine learning techniques—particularly deep neural networks (DNNs)—have revolutionized the construction of interatomic potentials for molecular dynamics simulations. Traditional analytical potentials, while computationally efficient, are often limited in their ability to accurately capture many-body interactions and chemical complexities across diverse atomic environments. Neural Network Potentials (NNPs) overcome these limitations by learning the potential energy surface (PES) directly from \textit{ab initio} reference data \cite{behler2007generalized, noe2020mlreview}.
+
+In the NNP framework, a neural network is trained to approximate the mapping between an atomic configuration and its corresponding total energy and atomic forces. The total potential energy of a system is commonly expressed as a sum of atomic contributions \cite{behler2007generalized}:
+\[
+E = \sum_i E_i(\mathcal{R}_i),
+\]
+where \(E_i\) denotes the atomic energy associated with atom \(i\), and \(\mathcal{R}_i\) represents its local environment within a cutoff radius. This decomposition ensures extensivity and locality and enables efficient scaling with system size.
+
+
+Training a neural network potential involves minimizing a loss function that combines
+the errors in energies, forces, and optionally virials. Following the formulation used in 
+DeePMD-kit~\cite{wang2018deepmd, zeng2023deepmdv2}, the loss is written as
+\begin{equation}
+\mathcal{L} = p_E L_E + p_F L_F + p_V L_V ,
+\end{equation}
+where the terms are defined as
+\begin{align}
+L_E &= \frac{1}{N_E}
+\sum_{n=1}^{N_E} 
+\left( E_n^{\mathrm{NN}} - E_n^{\mathrm{DFT}} \right)^2, \\
+L_F &= \frac{1}{3 N_F}
+\sum_{n=1}^{N_F} \sum_{i=1}^{N_{\text{atoms}}}
+\left\| \mathbf{F}_{i,n}^{\mathrm{NN}} - \mathbf{F}_{i,n}^{\mathrm{DFT}} \right\|^2, \\
+L_V &= \frac{1}{9 N_V}
+\sum_{n=1}^{N_V}
+\left\| \mathbf{V}_n^{\mathrm{NN}} - \mathbf{V}_n^{\mathrm{DFT}} \right\|^2 .
+\end{align}
+The factors \(1/3\) and \(1/9\) arise from averaging the force and virial errors
+over their three and nine Cartesian components, respectively, ensuring consistent 
+normalization across all contributions to the loss.
+
+During inference, atomic coordinates are transformed into symmetry-preserving descriptors that are invariant under translation, rotation, and permutation of atoms of the same type \cite{bartok2013representing, zaheer2017deepsets}. These descriptors serve as input to the neural network, which predicts atomic energies and corresponding forces in real time, achieving \textit{ab initio}-level accuracy at computational cost comparable to classical MD.
+
+A variety of neural-network-based interatomic potentials have been proposed, including Behler–Parrinello networks \cite{behler2007generalized}, Gaussian Approximation Potentials (GAP) \cite{bartok2015gap}, SchNet \cite{schutt2017schnet}, and the E(3)-equivariant NequIP model \cite{batzner2022nequib}. Among these, the Deep Potential Molecular Dynamics (DeepMD) framework has emerged as one of the most widely adopted and computationally efficient implementations due to its smooth descriptor formulation and native GPU acceleration. The following subsection focuses specifically on \textbf{DeepMD-kit version 2}, which forms the theoretical and computational foundation for the present work.
+
+
+% \subsection{Deep Potential Molecular Dynamics (DeepMD)}
 
 % This work focuses exclusively on \textbf{Deep Potential Molecular Dynamics version 2 (DeepMD-kit v2)}, the second-generation implementation of the Deep Potential framework. DeepMD-kit v2 represents a major advancement over its predecessor, introducing smooth and transferable descriptor formulations, improved multi-species handling, and efficient GPU execution. These features make it particularly suitable for high-accuracy, large-scale molecular dynamics simulations of binary alloy systems within HALMD.
 
@@ -270,6 +370,45 @@ Overall, the structure of the thesis is designed to guide the reader from the mo
 
 % In this thesis, DeepMD-kit v2 serves as the machine-learned potential integrated into the HALMD simulation framework. All parameter extraction, descriptor reconstruction, and neural network inference follow the DeepMD-kit v2 specification precisely. By embedding this inference process into HALMD’s GPU-accelerated infrastructure, the present work enables efficient and scalable molecular dynamics simulations of binary alloy systems with near \textit{ab initio} accuracy.
 
+\subsection{Deep Potential Molecular Dynamics (DeepMD)}
+
+This work focuses on \textbf{Deep Potential Molecular Dynamics version~2 (DeepMD-kit v2)}, the second-generation implementation of the Deep Potential framework. DeepMD-kit v2 represents a major advancement over the original DeepMD formulation~\cite{wang2018deepmd}, introducing improved descriptor smoothness, enhanced multi-species handling, and a refined software architecture that enables highly efficient GPU execution~\cite{zeng2023deepmdv2}. These features make DeepMD-kit v2 particularly suitable for modeling chemically complex systems such as binary alloys within HALMD.
+
+Deep Potential Molecular Dynamics is a machine-learning approach that approximates interatomic interactions with near \textit{ab initio} accuracy while retaining computational efficiency comparable to classical MD. A neural network is trained on quantum-mechanical reference data (typically from DFT or AIMD) to map atomic configurations to energies and forces. The total potential energy of the system is decomposed into atomic energy contributions~\cite{wang2018deepmd, zeng2023deepmdv2}:
+\[
+E = \sum_{i} E_i(\mathcal{R}_i),
+\]
+where \(E_i\) is the atomic energy of atom \(i\), and $\mathcal{R}_i$ denotes its local environment within a cutoff radius \(r_c\). This locality assumption yields linear scaling in the number of atoms and enables efficient parallelization on GPUs.
+
+A defining element of DeepMD is the use of symmetry-preserving descriptors that are invariant under translations, rotations, and permutations of atoms of the same type. DeepMD-kit v2 employs the \textit{Smooth Edition} (SE) descriptor family, provided in angular (\texttt{se\_e2\_a}) variants~\cite{zeng2023deepmdv2}. It is constructed from two matrices:
+\begin{itemize}
+    \item the \textbf{$R$-matrix}, containing relative position vectors \( R_{ij} = \mathbf{r}_j - \mathbf{r}_i \) for neighbors \(j\) within the cutoff radius;
+    \item the \textbf{$G$-matrix}, a normalized representation incorporating angular information and many-body geometric correlations.
+\end{itemize}
+Distances $r_{ij} = |R_{ij}|$ are modulated by a smooth cutoff function to ensure continuity of energies and forces at the cutoff boundary~\cite{wang2018deepmd}.
+
+The Deep Potential model in both DP-v1 and DP-v2 consists of two neural networks: an \textbf{embedding (filter) network} and a \textbf{fitting network}~\cite{wang2018deepmd, zeng2023deepmdv2}.
+
+\begin{enumerate}
+    \item \textbf{Embedding (Filter) Network.}  
+    This smaller feed-forward network transforms raw neighbor information into high-dimensional filter features. In DP-v2, a distinct embedding network is assigned to each atomic species, allowing the model to capture chemically specific interactions (e.g., Cu--Ag, Ni--Al) while preserving permutation invariance within each species~\cite{zeng2023deepmdv2}. The embedding network processes each neighbor independently.
+
+    \item \textbf{Fitting Network.}  
+    The outputs of the embedding networks are aggregated into a descriptor vector $\mathbf{D}_i$, which is passed to a larger fully connected fitting network that predicts the atomic energy $E_i$. Each species has its own fitting network parameters, enabling accurate modeling of multi-component materials.
+\end{enumerate}
+
+Forces are obtained as the negative gradients of the total energy:
+\[
+\mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.
+\]
+During training, these derivatives are computed automatically through TensorFlow’s backpropagation engine. During inference---which is the focus of this thesis---the gradients are obtained by applying the chain rule explicitly through the descriptor and neural-network layers, following the DP-v2 computational graph~\cite{zeng2023deepmdv2}.
+
+DeepMD-kit v2 introduces several enhancements that are essential for accurate multi-species modeling. These include species-dependent embedding networks, species-specific filter weights, descriptor normalization layers, and refined smooth cutoff schemes~\cite{zeng2023deepmdv2}. Together, these improvements enable DP-v2 to handle chemically diverse systems with greater smoothness, transferability, and numerical stability compared to its predecessor.
+
+A trained DeepMD model is stored as a TensorFlow \texttt{frozen\_model.pb} file along with an accompanying \texttt{input.json} file specifying descriptor types, cutoff radii, hyperparameters, and precision settings. During inference, atomic coordinates are transformed into descriptors, processed by species-specific embedding networks, and fed into the fitting network to produce atomic energies and forces.
+
+In this thesis, DeepMD-kit v2 serves as the machine-learned potential that is fully integrated into HALMD. All parameter extraction, descriptor reconstruction, and neural-network inference follow the DP-v2 specification precisely. By embedding this inference process into HALMD's GPU-accelerated architecture, the present work enables large-scale simulations of multi-species systems, such as binary alloys, with near \textit{ab initio} accuracy.
+
 
 
 % ===============================
@@ -281,15 +420,15 @@ Overall, the structure of the thesis is designed to guide the reader from the mo
 
 % The implementation process follows a modular workflow that bridges the DeepMD and HALMD architectures. It consists of two main components: a Python-based parameter extraction stage and a C++/CUDA-based inference stage.
 
-% \textbf{1. Parameter Extraction (Python side).}  
+\textbf{1. Parameter Extraction (Python side).}  
 % The first step involves extracting the neural network parameters—weights, biases, and embedding coefficients—from the trained DeepMD-kit v2 model stored in the \texttt{frozen\_model.pb} file. This file contains a serialized TensorFlow computation graph representing the trained descriptor construction, filter (embedding) network, and fitting network. A custom Python utility script was developed using the TensorFlow API to traverse the graph structure, locate all relevant trainable variables, and export them in a structured and human-readable format (JSON or NumPy arrays). The extraction process ensures that all model parameters are preserved with full numerical precision, including the layer dimensions, activation functions, and cutoff parameters defined in the associated \texttt{input.json} file.
 
-% \textbf{2. Inference and Integration (C++/CUDA side).}  
+\textbf{2. Inference and Integration (C++/CUDA side).}  
 % Once extracted, the parameters are imported into HALMD’s modular potential interface. A new potential class, referred to as \texttt{deepmd\_potential}, was implemented in C++ to replicate the DeepMD inference process. This class reconstructs the descriptor pipeline—computation of \(R\)- and \(G\)-matrices, application of smooth cutoff functions, and formation of atomic descriptor vectors \(\mathbf{D}_i\)—directly within HALMD. The descriptor output is then propagated through the fully connected neural networks using the extracted weights and biases to compute per-atom energies. Forces are obtained analytically by differentiating the energy with respect to atomic coordinates using explicit derivative propagation through both the descriptor and network layers. 
 
 % HALMD’s existing GPU infrastructure was leveraged to parallelize the most computationally demanding operations, including neighbor-list construction, descriptor evaluation, and dense matrix multiplications within the neural network layers. By combining DeepMD’s learned potential surface with HALMD’s optimized CUDA kernels, the resulting implementation achieves efficient large-scale simulations of binary alloy systems while maintaining consistency with the original DeepMD-kit v2 predictions.
 
-% \textbf{3. Verification and Validation.}  
+\textbf{3. Verification and Validation.}  
 % To ensure correctness, the C++ implementation was systematically validated against the original DeepMD Python inference. Energy and force predictions were compared for identical test configurations of binary alloy systems, and discrepancies were measured to confirm numerical consistency. Once verified, the integrated DeepMD potential in HALMD was used for production-level simulations, enabling the exploration of alloy thermodynamics and dynamics at near \textit{ab initio} accuracy.
 
 % Overall, the implementation strategy is designed to separate data extraction and inference logic. The Python stage ensures model transparency and compatibility with DeepMD-kit v2, while the C++ stage enables real-time evaluation within HALMD’s GPU-accelerated molecular dynamics engine. This modular design provides a scalable foundation for future extensions, including support for additional descriptor types or multi-GPU parallelization.
@@ -390,6 +529,8 @@ Overall, the structure of the thesis is designed to guide the reader from the mo
 
 
 \newpage
+\nocite{colberg2011highly}
 \printbibliography
+
 
 \end{document}
