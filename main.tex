@@ -461,10 +461,8 @@ The resulting HDF5 file serves as the unified model representation for HALMD. Du
 
 
 
-
-
-
 \subsection{Coordinate System Extension }
+\label{sec:env_construction}
 
 A central contribution of this thesis is the redesign of HALMD’s environment–construction pipeline so that it follows the exact conventions required by DeepMD-v2. The earlier implementation by Cruz \cite{cruz2025deepmd} relied on HALMD’s built-in periodic boundary handling and neighbour list, which correctly satisfy the minimum-image convention used in classical MD \cite{colberg2011highly}. However, this approach provides only the displacements between atoms and does not reproduce the full periodic environment expected by the Deep Potential (DP) descriptor pipeline. DeepMD-v2 uses a stricter definition of the local atomic environment, requiring explicit coordinate wrapping, ghost-cell expansion, species-aware neighbour grouping, and descriptor normalization \cite{wang2018deepmd, zeng2023deepmdv2}. These steps were not included in the previous HALMD implementation and form the foundation of the extended environment-construction procedure in this thesis.
 
@@ -552,6 +550,7 @@ HALMD prototype~\cite{cruz2025deepmd}.
 
 % ---------------------------------------------------------
 \subsubsection{R-Matrix Construction}
+\label{sec:R_matrix_construction}
 
 The geometric matrix \( R \) encodes the relative positions of selected neighbours of each
 central atom and is designed to be invariant under translation, rotation, and permutation of
@@ -645,6 +644,7 @@ These improvements produce geometric descriptors fully consistent with DeepMD-v2
 
 % ---------------------------------------------------------
 \subsubsection{G-Matrix (Embedding Matrix) Construction}
+\label{sec:G_matrix_construction}
 
 The second stage of the descriptor constructs the embedding matrix \( G \) by passing  
 each normalized inverse distance \( \hat{s}_{ij} \) through a small neural network known as a
@@ -931,12 +931,297 @@ and the total potential energy is
 \end{equation}
 This matches DeepMD-v2 inference for all tested single- and multi-species systems.
 
-\subsection{Force Computation}
-\subsubsection{Autodiff}
-\subsubsection{$\hat{R}$ Derivative}
-\subsubsection{Descriptor Derivative}
-\subsubsection{Fitting Network Derivative}
-\subsubsection{Final Force Assembly}
+\section{Force Computation}
+\label{sec:forces}
+
+In the Deep Potential (DeeP) framework, forces are obtained as the negative 
+gradient of the total potential energy with respect to atomic coordinates,
+\[
+    \mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.
+\]
+Because the energy is produced through a multi-stage mapping involving geometric 
+quantities (\(R\)), species-dependent embedding networks (\(G\)), and a 
+species-dependent fitting network, the force computation requires evaluating a 
+sequence of nested derivatives. 
+
+DeepMD expresses this as a structured chain rule passing through:
+
+\[
+\mathbf{r}
+\;\xrightarrow{\text{geometry}}\; 
+R
+\;\xrightarrow{\text{embedding}}\;
+G
+\;\xrightarrow{\text{fitting network}}\;
+E,
+\]
+so that each force component involves contributions from all atoms appearing in 
+the local environment of the corresponding descriptor.
+
+The remainder of this section describes the derivative computation in HALMD.  
+We begin with an overview of automatic differentiation (AD), which is used to 
+evaluate all neural-network derivatives. We then detail the analytic derivatives 
+of the geometry matrix \(R\), the descriptor \(D\), and finally show how these 
+quantities are combined with the fitting-network derivatives to assemble the 
+total atomic forces.
+
+
+\subsection{Automatic Differentiation (AD)}
+\label{sec:autodiff}
+
+As outlined in the beginning of this section, the computation of atomic forces
+in DeepMD requires propagating derivatives through a sequence of mappings
+involving geometric transformations, embedding networks, descriptor algebra,
+and finally a species-dependent fitting network.  
+While the geometric parts admit closed-form analytic expressions, the neural
+networks used in DeepMD-v2 contain nonlinear activations, residual connections,
+and timestep scalings that make analytical differentiation impractical.  
+For these components HALMD employs \emph{automatic differentiation} (AD).
+
+
+Automatic differentiation is a computational technique for evaluating
+derivatives of functions represented as compositions of elementary operations
+\cite{griewank2008evaluating, baydin2018automatic}.  
+Unlike symbolic differentiation, AD avoids expression explosion, and unlike
+finite differences, it does not introduce truncation error.  
+Instead, derivatives are accumulated by applying the chain rule locally at
+every primitive operation.
+
+Two modes of AD are central:
+\begin{itemize}
+    \item \textbf{Forward-mode AD}: propagates derivatives together with the
+    computation, efficient when the number of inputs is small.
+
+    \item \textbf{Reverse-mode AD}: propagates derivatives backward from a scalar
+    output, efficient when the number of outputs is one.  
+    This is the mechanism underlying backpropagation
+    \cite{rumelhart1986learning} and the mode used in modern ML frameworks such
+    as TensorFlow \cite{abadi2016tensorflow} and PyTorch \cite{paszke2019pytorch}.
+\end{itemize}
+
+Reverse-mode AD is particularly well suited to DeepMD, since both the embedding
+networks $G^{(a,b)}$ and the fitting networks $\mathrm{NN}_{s_i}$ have scalar
+inputs or scalar outputs, making derivative evaluation highly efficient.
+
+
+HALMD uses Boost.Autodiff \cite{falcou2023boostautodiff} to compute all
+derivatives internal to neural networks:
+\begin{enumerate}
+    \item For each neighbour $j$, the filter network $G^{(a,b)}$ provides both
+    the embedding vector $G_{ij}$ and the derivative
+    $\partial G_{ij}/\partial\hat{s}_{ij}$.
+
+    \item For each atom $i$, the fitting network provides both the predicted
+    atomic energy $E_i$ and the Jacobian
+    $\partial E_i / \partial D_{i,\alpha}$.
+
+    \item All remaining derivatives—those involving the geometric mapping
+    $R^\ast(\mathbf{r})$, the scaled distances $\hat{s}_{ij}$, and the descriptor
+    construction $D(G,R^\ast)$—are evaluated analytically and implemented
+    explicitly in HALMD.
+\end{enumerate}
+
+
+AD therefore supplies exactly the neural-network parts of the chain rule,
+while the analytical components handle the geometric and descriptor terms.
+This hybrid strategy achieves:
+\begin{itemize}
+    % \item exact numerical agreement with the DeepMD-v2 reference implementation,
+    \item efficient multi-species derivative propagation,
+    \item clean separation between neural and geometric derivatives.
+\end{itemize}
+
+The following subsections detail each analytic component of the force
+derivation: derivatives of the geometric mapping ($R^\ast$), descriptor
+derivatives, fitting-network derivatives, and finally the assembly of the total
+force.
+
+\subsubsection{Derivatives of the Raw Geometry Matrix \texorpdfstring{$R^\ast$}{R*}}
+\label{sec:R_derivative}
+
+The computation of atomic forces requires the derivative of each row of the
+raw geometry matrix \( R^\ast \) with respect to the coordinates of the
+central atom.  
+Since \( R^\ast \) depends on both the pairwise displacement
+\( \mathbf{r}_{ij} \) and its magnitude \( r_{ij} \), its derivative naturally
+splits into \emph{radial} and \emph{angular} components, which are combined
+to obtain the full geometric derivative.
+
+\paragraph{Structure of the raw geometry row.}
+Recall from Section~\ref{sec:R_matrix_construction} that each neighbour \(j\)
+contributes the row
+\[
+R^\ast_{ij}
+=
+\Bigl[
+    \tilde{s}_{ij},\;
+    \tilde{s}_{ij} \frac{x_{ij}}{r_{ij}},\;
+    \tilde{s}_{ij} \frac{y_{ij}}{r_{ij}},\;
+    \tilde{s}_{ij} \frac{z_{ij}}{r_{ij}}
+\Bigr],
+\]
+where  
+\[
+\tilde{s}_{ij} = s_{ij} f_{\mathrm{sw}}(r_{ij}), 
+\qquad
+s_{ij} = \frac{1}{r_{ij}}.
+\]
+
+\subparagraph{Relative displacement and unit direction.}
+For the central atom \(i\),
+\[
+\mathbf{r}_{ij} = \mathbf{r}_j - \mathbf{r}_i,
+\qquad
+r_{ij} = \lVert \mathbf{r}_{ij} \rVert,
+\qquad
+\hat{\mathbf{r}}_{ij} = \frac{\mathbf{r}_{ij}}{r_{ij}}.
+\]
+
+% -------------------------------------------------------
+\paragraph{(1) Radial derivative: \texorpdfstring{$\partial r_{ij}/\partial \mathbf{r}_i$}{dr/dri}}
+\label{sec:Rderiv_radial_distance}
+
+The central-atom derivative of the pair distance is
+\begin{equation}
+\frac{\partial r_{ij}}{\partial \mathbf{r}_i}
+=
+-\,\hat{\mathbf{r}}_{ij},
+\label{eq:dr_dri_clean}
+\end{equation}
+indicating that increasing \( \mathbf{r}_i \) in the direction of
+\( \hat{\mathbf{r}}_{ij} \) decreases the separation.
+
+% -------------------------------------------------------
+\paragraph{(2) Radial derivative of the switched inverse distance}
+\label{sec:Rderiv_radial_s}
+
+The switched inverse distance is
+\[
+\tilde{s}_{ij} = \frac{1}{r_{ij}} f_{\mathrm{sw}}(r_{ij}).
+\]
+Differentiating w.r.t.\ \( r_{ij} \) yields
+\begin{equation}
+\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
+=
+-\,\frac{1}{r_{ij}^{2}} f_{\mathrm{sw}}(r_{ij})
++
+\frac{1}{r_{ij}}\,
+\frac{\mathrm{d} f_{\mathrm{sw}}}{\mathrm{d} r}(r_{ij}).
+\label{eq:dsdr_clean}
+\end{equation}
+Combining Eq.~\eqref{eq:dsdr_clean} with Eq.~\eqref{eq:dr_dri_clean}:
+\[
+\left(\frac{\partial R^\ast_{ij,0}}{\partial \mathbf{r}_i}\right)_{\mathrm{rad}}
+=
+-\,\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}} \, \hat{\mathbf{r}}_{ij}.
+\]
+
+% -------------------------------------------------------
+\paragraph{(3) Radial derivative of angular components}
+\label{sec:Rderiv_radial_components}
+
+For
+\[
+S_{\alpha}
+=
+\tilde{s}_{ij} \frac{d_{\alpha}}{r_{ij}},
+\qquad
+d_{\alpha} \in \{x_{ij}, y_{ij}, z_{ij}\},
+\]
+the derivative w.r.t.\ the distance is
+\begin{equation}
+\frac{\partial S_{\alpha}}{\partial r_{ij}}
+=
+\frac{d_{\alpha}}{r_{ij}^{2}}
+\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
+-
+2\,\tilde{s}_{ij} \frac{d_{\alpha}}{r_{ij}^{3}}.
+\label{eq:radial_Salpha_clean}
+\end{equation}
+Thus,
+\[
+\left(\frac{\partial S_{\alpha}}{\partial \mathbf{r}_i}\right)_{\mathrm{rad}}
+=
+-\,\frac{\partial S_{\alpha}}{\partial r_{ij}}
+\hat{\mathbf{r}}_{ij}.
+\]
+
+% -------------------------------------------------------
+\paragraph{(4) Angular derivative: explicit coordinate dependence}
+\label{sec:Rderiv_angular}
+
+The components \( d_{\alpha} = x_{j,\alpha} - x_{i,\alpha} \)
+depend directly on \( \mathbf{r}_i \).  
+Holding \(r_{ij}\) fixed:
+\[
+\frac{\partial d_{\alpha}}{\partial \mathbf{r}_i}
+= -\,\mathbf{e}_{\alpha},
+\]
+leading to the angular contribution
+\begin{equation}
+\left(\frac{\partial S_{\alpha}}{\partial \mathbf{r}_i}\right)_{\mathrm{ang}}
+=
+-\,\frac{\tilde{s}_{ij}}{r_{ij}}\,\mathbf{e}_{\alpha}.
+\label{eq:angular_Salpha_clean}
+\end{equation}
+The isotropic term \( R^\ast_{ij,0} \) has no angular component.
+
+% -------------------------------------------------------
+\paragraph{(5) Full derivative of the raw geometry row}
+\label{sec:Rderiv_full}
+
+Combining radial and angular parts:
+\begin{equation}
+\frac{\partial R^\ast_{ij,\alpha}}{\partial \mathbf{r}_i}
+=
+\left(\frac{\partial R^\ast_{ij,\alpha}}{\partial \mathbf{r}_i}\right)_{\mathrm{rad}}
++
+\left(\frac{\partial R^\ast_{ij,\alpha}}{\partial \mathbf{r}_i}\right)_{\mathrm{ang}},
+\qquad
+\alpha = 0,1,2,3.
+\label{eq:Rstar_full_clean}
+\end{equation}
+
+% -------------------------------------------------------
+\paragraph{(6) Derivative of the normalized geometry row}
+\label{sec:Rderiv_norm}
+
+Normalization (Section~\ref{sec:R_matrix_construction}) gives
+\[
+\hat{R}_{ij,\alpha}
+=
+\frac{
+    R^\ast_{ij,\alpha} - (t_{\mathrm{avg}})_{\alpha}
+}{
+    (t_{\mathrm{std}})_{\alpha}
+}.
+\]
+Thus,
+\begin{equation}
+\frac{\partial \hat{R}_{ij,\alpha}}{\partial \mathbf{r}_i}
+=
+\frac{1}{(t_{\mathrm{std}})_{\alpha}}
+\frac{\partial R^\ast_{ij,\alpha}}{\partial \mathbf{r}_i}.
+\label{eq:Rnorm_full_clean}
+\end{equation}
+
+% -------------------------------------------------------
+\paragraph{Summary.}
+The derivative of the geometry matrix \( R^\ast \) includes:
+\begin{itemize}
+    \item a \textbf{radial component} from the dependence on \( r_{ij} \),
+    \item an \textbf{angular component} from explicit displacement derivatives,
+    \item a \textbf{normalization derivative} for compatibility with DeepMD-v2.
+\end{itemize}
+These analytic formulas reproduce the exact geometric derivative pipeline of
+DeepMD-v2 and provide the geometric contribution needed for force evaluation.
+
+
+
+
+\subsection{Descriptor Derivative}
+\subsection{Fitting Network Derivative}
+\subsection{Final Force Assembly}
 
 % ===============================
 \section{Results}
