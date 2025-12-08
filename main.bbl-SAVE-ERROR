@@ -929,41 +929,6 @@
       \field{title}{Boost.Autodiff: Automatic Differentiation in Modern C++}
       \field{year}{2023}
     \endentry
-    \entry{Cu_fcc_slabs_2023}{misc}{}{}
-      \name{author}{3}{}{%
-        {{hash=60bf1ec320d2d4a0d4aee28cc4429423}{%
-           family={Cioni},
-           familyi={C\bibinitperiod},
-           given={Matteo},
-           giveni={M\bibinitperiod}}}%
-        {{hash=b267200e2687e7b39739dfe7c2054d46}{%
-           family={Polino},
-           familyi={P\bibinitperiod},
-           given={Daniela},
-           giveni={D\bibinitperiod}}}%
-        {{hash=f6e7895efdaa58b4e1dd9e7b548570da}{%
-           family={Rapetti},
-           familyi={R\bibinitperiod},
-           given={Daniele},
-           giveni={D\bibinitperiod}}}%
-      }
-      \strng{namehash}{738c8d0fa68bff715ead083a3b113db2}
-      \strng{fullhash}{738c8d0fa68bff715ead083a3b113db2}
-      \strng{fullhashraw}{738c8d0fa68bff715ead083a3b113db2}
-      \strng{bibnamehash}{738c8d0fa68bff715ead083a3b113db2}
-      \strng{authorbibnamehash}{738c8d0fa68bff715ead083a3b113db2}
-      \strng{authornamehash}{738c8d0fa68bff715ead083a3b113db2}
-      \strng{authorfullhash}{738c8d0fa68bff715ead083a3b113db2}
-      \strng{authorfullhashraw}{738c8d0fa68bff715ead083a3b113db2}
-      \field{sortinit}{5}
-      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{howpublished}{\url{www.aissquare.com/models/detail?pageType=models&name=Cu_fcc_slabs}}
-      \field{note}{Machine-learned interatomic potential trained with DeePMD-kit}
-      \field{title}{{Cu\_fcc\_slabs Deep Potential Model}}
-      \field{year}{2023}
-    \endentry
   \enddatalist
 \endrefsection
 \endinput

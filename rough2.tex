@@ -1,0 +1,18 @@
+\section{Introduction}
+\subsection{Motivation}
+
+Molecular dynamics (MD) simulations play a central role in materials science by providing atomistic insight into the behavior of complex systems. Their predictive power depends on the interatomic potential used to approximate the underlying potential energy surface (PES). Classical empirical potentials are efficient but often too rigid to describe complex bonding environments, whereas \textit{ab initio} methods offer high accuracy at prohibitive computational cost. Machine-learned interatomic potentials---particularly the Deep Potential Molecular Dynamics (DeepMD) framework---bridge this gap by achieving near--quantum mechanical accuracy with classical-MD performance.
+
+The work by Andrés Cruz, titled \textit{``Deep Neural Networks Potentials for Scalable Molecular Dynamics Simulations on Accelerator Hardware''} \cite{cruz2025deepmd}, represents an important step toward integrating Deep Potential models into the high-performance GPU-accelerated simulation engine HALMD. His work reconstructs the DeePMD-kit inference pipeline inside HALMD, extracts network weights from a trained TensorFlow model, and validates energy and force predictions for a \textit{single-species Copper system}.
+In particular, his implementation focuses on the \textit{two-body embedding smooth edition  DeepPot-SE descriptor} and reproduces the filter and fitting networks \textit{only for a monoatomic system}, making it suitable for single metal.
+
+However, the implementation in \cite{cruz2025deepmd} remains limited to the simplest case of DeepMD-v2 architectures. It does not include support for multi-species system and does not implement several key components required for full DeepMD-v2 inference, such as:    
+
+
+\begin{itemize}
+    \item periodic coordinate extension and neighbor-list construction used in DeepMD \cite{wang2018deepmd},
+    \item normalization and scaling layers defined in the DP-v2 framework \cite{zeng2023deepmdv2},
+    \item species-dependent descriptors,
+    \item \cite{zeng2023deepmdv2}.   
+\end{itemize}
+
