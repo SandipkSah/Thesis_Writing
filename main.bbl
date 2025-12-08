@@ -912,8 +912,8 @@
       \strng{authornamehash}{724e74fc18651eb78eb82fbcd1d9dfb1}
       \strng{authorfullhash}{48a7dff01ec9361a039ff178d435ae04}
       \strng{authorfullhashraw}{48a7dff01ec9361a039ff178d435ae04}
-      \field{sortinit}{5}
-      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{journaltitle}{Advances in neural information processing systems}
@@ -922,8 +922,8 @@
       \field{year}{2019}
     \endentry
     \entry{falcou2023boostautodiff}{inproceedings}{}{}
-      \field{sortinit}{5}
-      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labeltitlesource}{title}
       \field{booktitle}{Proceedings of CPPNow 2023}
       \field{title}{Boost.Autodiff: Automatic Differentiation in Modern C++}
@@ -955,14 +955,85 @@
       \strng{authornamehash}{738c8d0fa68bff715ead083a3b113db2}
       \strng{authorfullhash}{738c8d0fa68bff715ead083a3b113db2}
       \strng{authorfullhashraw}{738c8d0fa68bff715ead083a3b113db2}
-      \field{sortinit}{5}
-      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{www.aissquare.com/models/detail?pageType=models&name=Cu_fcc_slabs}}
       \field{note}{Machine-learned interatomic potential trained with DeePMD-kit}
       \field{title}{{Cu\_fcc\_slabs Deep Potential Model}}
       \field{year}{2023}
+    \endentry
+    \entry{deepmdkit_v2_data}{misc}{}{}
+      \name{author}{2}{}{%
+        {{hash=ecd6ecf0870f9341ac52268eb35d2242}{%
+           family={Zeng},
+           familyi={Z\bibinitperiod},
+           given={Jinzhe},
+           giveni={J\bibinitperiod}}}%
+        {{hash=b6ed01daf082a9382031df5c08afcc82}{%
+           family={Zhang},
+           familyi={Z\bibinitperiod},
+           given={Duo},
+           giveni={D\bibinitperiod}}}%
+      }
+      \strng{namehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{fullhash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{fullhashraw}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{bibnamehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authorbibnamehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authornamehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authorfullhash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authorfullhashraw}{e4ba52229e452ab4983911eb2d22c9b5}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://github.com/deepmodeling-activity/deepmd-kit-v2-paper}}
+      \field{note}{Supporting data for: DeePMD-kit v2: A software package for deep potential models, J. Chem. Phys., 159, 054801 (2023)}
+      \field{title}{Data for DeePMD-kit v2 paper}
+      \field{year}{2023}
+    \endentry
+    \entry{zhong2025hydrogen}{article}{}{}
+      \name{author}{3}{}{%
+        {{hash=d71fce802a92449f09bdf8439697408b}{%
+           family={Zhong},
+           familyi={Z\bibinitperiod},
+           given={Xin},
+           giveni={X\bibinitperiod}}}%
+        {{hash=bfef2a47b86cf55b9276703c80c56686}{%
+           family={Höfling},
+           familyi={H\bibinitperiod},
+           given={Felix},
+           giveni={F\bibinitperiod}}}%
+        {{hash=02a76ac876e3db17a7a913916b5f5484}{%
+           family={John},
+           familyi={J\bibinitperiod},
+           given={Timm},
+           giveni={T\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Wiley Online Library}%
+      }
+      \strng{namehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{fullhash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{fullhashraw}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{bibnamehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authorbibnamehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authornamehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authorfullhash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authorfullhashraw}{dd2da457d0d46f863b6250986f8bf380}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Geochemistry, Geophysics, Geosystems}
+      \field{number}{2}
+      \field{title}{Hydrogen diffusion in garnet: Insights from atomistic simulations}
+      \field{volume}{26}
+      \field{year}{2025}
+      \field{pages}{e2024GC011951}
+      \range{pages}{-1}
     \endentry
   \enddatalist
 \endrefsection
