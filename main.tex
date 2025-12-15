@@ -94,46 +94,99 @@
   \vspace*{8mm}
 \end{center}
 
-\subsection*{English: Declaration of Authorship}
 
-I hereby declare that the thesis submitted was created and written
-solely by myself without any external support. Any sources, direct
-or indirect, are marked as such. I am aware of the fact that the
-contents of the thesis in digital form may be revised with regard to
-usage of unauthorized aid as well as whether the whole or parts of
-it may be identified as plagiarism. I do agree my work to be entered
-into a database for it to be compared with existing sources, where
-it will remain in order to enable further comparisons with future
-theses. This does not grant any rights of reproduction and usage,
-however.
 
-This document was neither presented to any other examination board
-nor has it been published.
+\section*{Declaration of Independence}
 
-\subsection*{German: Erklärung der Autorenschaft (Urheberschaft)}
 
-Ich erkläre hiermit, dass die vorliegende Arbeit ohne fremde Hilfe
-ausschließlich von mir erstellt und geschrieben worden ist. Jedwede
-verwendeten Quellen, direkter oder indirekter Art, sind als solche
-kenntlich gemacht worden. Mir ist die Tatsache bewusst, dass der
-Inhalt der Thesis in digitaler Form geprüft werden kann im Hinblick
-darauf, ob es sich ganz oder in Teilen um ein Plagiat handelt. Ich
-bin damit einverstanden, dass meine Arbeit in einer Datenbank
-eingegeben werden kann, um mit bereits bestehenden Quellen
-verglichen zu werden und dort auch verbleibt, um mit zukünftigen
-Arbeiten verglichen werden zu können. Dies berechtigt jedoch nicht
-zur Verwendung oder Vervielfältigung.
+\bigskip
 
-Diese Arbeit wurde noch keiner anderen Prüfungsbehörde vorgelegt
-noch wurde sie bisher veröffentlicht.
+I hereby confirm that I have completed this thesis independently and without the use of sources and
+aids other than those specified. This thesis has not been submitted in the same or a similar form as an
+examination at any other university.
 
-\vspace{20mm}
+I have identified all quotations, both direct and indirect, as such. Literal quotations have been marked
+with quotation marks (“...”). I have also cited Internet sources used, stating their full address and the
+time of last access.
 
-\dotfill\\
-Date, Signature
+I take note:
+
+I am obliged to comply with the rules of good scientific practice. Violations will be subject to
+disciplinary action. In particular, attempts to cheat will automatically be assessed as “fail” (5.0)
+(§ 19 (3) sentence 1 RSPO). The adoption of external ideas / results / concepts etc. without
+appropriate identification (plagiarism) is generally an attempt to deceive. Depending on the severity,
+further sanctions are possible up to the final failure of the examination and thus the degree program
+(§ 19 (3) sentence 3 and 4 RSPO).
+
+The grade may be lowered (including a failing grade) due to a lack of independence if a significant
+amount of other persons' explanations are copied, even if they are identified as such and no attempt to
+deceive has been made.
+
+\bigskip
+
+I did
+
+\begin{itemize}
+  \item[$\square$] not use generative AI to write my thesis.
+  \item[$\blacksquare$] use generative AI to write my thesis (please note the information on the
+  extended declaration of independence).
+\end{itemize}
+
+\vspace{1.5cm}
+
+\noindent
+Date:\hfill Signature:
+
+\section*{Extended Declaration of Independence}
+
+
+\bigskip
+
+Following operations were performed in my thesis using generative AI:
+
+\bigskip
+
+
+\begin{center}
+\begin{tabular}{|p{7cm}|p{5cm}|}
+\hline
+\textbf{Type and location of AI assistance} & \textbf{AI tool used} \\
+\hline
+Paraphrasing of section Introduction and Background
+& ChatGPT~4.0 \\
+\hline
+Summarizing overview of methodology
+& ChatGPT~4.0 \\
+\hline
+Formula Organizaation inside sector Force Computation
+& ChatGPT~4.0 \\
+\hline
+Linguistic correction of the entire text
+& Grammarly \\
+\hline
+\end{tabular}
+\end{center}
+
+
+\bigskip
+
+I understand that using AI-generated text or other content does not guarantee its quality. I take full
+responsibility for all machine-generated content that I use and am liable for any errors, distortions,
+or incorrect references, as well as any violations of data protection, copyright law, or plagiarism.
+Furthermore, I assure you that my editorial influence prevails in this work.
+
+I confirm that I did not use any AI-based tools prohibited by the examination regulations.
+
+\vspace{1.5cm}
+
+\noindent
+Date:\hfill Signature:
+
+
+
+
 
 \newpage
-
 \section*{Abstract}
 % A concise 200–300 word summary of:
 % \begin{itemize}
@@ -145,11 +198,14 @@ Date, Signature
 % \end{itemize}
 
 \newpage
+\setcounter{tocdepth}{2}
 \tableofcontents
 \clearpage
 \pagenumbering{arabic}
 
 % ===============================
+
+
 \section{Introduction}
 \subsection{Motivation}
 
@@ -193,8 +249,8 @@ This thesis addresses these limitations by implementing the complete multi-speci
     The previous implementation did not include the canonical DeePMD preprocessing steps for periodic systems---wrapping coordinates into the primary simulation cell, generating ghost atoms to cover the cutoff radius, and constructing species-grouped neighbor lists---as described in the DeePMD methodology \cite{wang2018deepmd, zeng2023deepmdv2}.  
     Implementing these steps ensures that HALMD reproduces the correct local environments required by the DeepPot-SE descriptors under periodic boundary conditions.
 
-    \item \textbf{Generalize the descriptor pipeline to multi-species systems.}  
-    This includes implementing species-dependent neighbor counts $N_c(a)$, species-aware embedding matrices $G_i$, and the full multi-species DeepPot-SE (se\_e2\_a) descriptor introduced in DP-v2 \cite{zeng2023deepmdv2}.
+    % \item \textbf{Generalize the descriptor pipeline to multi-species systems.}  
+    % This includes implementing species-dependent neighbor counts $N_c(a)$, species-aware embedding matrices $G_i$, and the full multi-species DeepPot-SE (se\_e2\_a) descriptor introduced in DP-v2 \cite{zeng2023deepmdv2}.
 
     \item \textbf{Implement species-dependent filter networks.}  
     Extend the single-species embedding and filter networks used in \cite{cruz2025deepmd} to support arbitrary numbers of atomic types, following the species-indexed filter network formulation defined in the DP-v2 architecture \cite{zeng2023deepmdv2}.
@@ -202,12 +258,12 @@ This thesis addresses these limitations by implementing the complete multi-speci
     \item \textbf{Reproduce the full DeepMD-v2 inference procedure with higher accuracy.}  
     Incorporate several computational steps omitted in previous work, including normalization layers, descriptor scaling operations, smooth cutoff functions, and full force backpropagation through descriptor derivatives, consistent with the DeepMD-v2 formulation \cite{zeng2023deepmdv2, wang2018deepmd}.
 
-    \item \textbf{Validate energy and force predictions for multi-component systems.}  
-    Compare results from HALMD against the DeePMD-kit reference implementation for multi-species models and quantify numerical deviations, following standard validation procedures established in DeepMD literature \cite{wang2018deepmd, zeng2023deepmdv2}.
+    % \item \textbf{Validate energy and force predictions for multi-component systems.}  
+    % Compare results from HALMD against the DeePMD-kit reference implementation for multi-species models and quantify numerical deviations, following standard validation procedures established in DeepMD literature \cite{wang2018deepmd, zeng2023deepmdv2}.
 
 \end{enumerate}
 
-\noindent\textbf{Scope.}  
+\noindent\textbf{Scope:}  
 This thesis focuses exclusively on the inference stage of DeepMD-v2, i.e., the computation of energies and forces from pre-trained models. Model training is outside the scope of this work. The implementation targets the multi-species DeepPot-SE descriptor and does not cover other descriptor families such as end-to-end or message-passing potentials. The work provides support for multi-species atomic systems relevant to alloys and chemically complex materials, while the underlying molecular dynamics algorithms (integrators, thermostats, barostats) rely on HALMD's existing infrastructure.
 
 
@@ -358,8 +414,8 @@ where \(E_i\) is the atomic energy of atom \(i\), and $\mathcal{R}_i$ denotes it
 
 A defining element of DeepMD is the use of symmetry-preserving descriptors that are invariant under translations, rotations, and permutations of atoms of the same type. DeepMD-kit v2 employs the \textit{Smooth Edition} (SE) descriptor family, provided in angular (\texttt{se\_e2\_a}) variants~\cite{zeng2023deepmdv2}. It is constructed from two matrices:
 \begin{itemize}
-    \item the \textbf{$R$-matrix}, containing relative position vectors \( R_{ij} = \mathbf{r}_j - \mathbf{r}_i \) for neighbors \(j\) within the cutoff radius;
-    \item the \textbf{$G$-matrix}, a normalized representation incorporating angular information and many-body geometric correlations.
+    \item the \textbf{R-matrix}, containing relative position vectors \( R_{ij} = \mathbf{r}_j - \mathbf{r}_i \) for neighbors \(j\) within the cutoff radius;
+    \item the \textbf{G-matrix}, a normalized representation incorporating angular information and many-body geometric correlations.
 \end{itemize}
 Distances $r_{ij} = |R_{ij}|$ are modulated by a smooth cutoff function to ensure continuity of energies and forces at the cutoff boundary~\cite{wang2018deepmd}.
 
@@ -1037,7 +1093,7 @@ for enabling HALMD to evaluate multi-species DeepMD-v2 models correctly.
 % \subsection{Computation of R and G Matrices}
 % \subsubsection{R Matrix}
 
-\subsection{Construction of the Geometric Matrix $R$}
+\subsection{Construction of the Configuration Matrix $R$}
 \label{sec:R_matrix_construction}
 
 Once wrapped coordinates, ghost-cell expansions, and species-ordered neighbour
@@ -2557,13 +2613,24 @@ component.
 
 In the frozen TensorFlow graph, the fitting network for species $s$ is encoded by
 nodes such as
+% \[
+% \texttt{layer\_0\_type\_s/matrix},\quad
+% \texttt{layer\_0\_type\_s/bias},\quad
+% \dots,\quad
+% \texttt{final\_layer\_type\_s/matrix},\quad
+% \texttt{final\_layer\_type\_s/bias},
+% \]
+
 \[
+\begin{aligned}
 \texttt{layer\_0\_type\_s/matrix},\quad
-\texttt{layer\_0\_type\_s/bias},\quad
+\texttt{layer\_0\_type\_s/bias}, \\
 \dots,\quad
 \texttt{final\_layer\_type\_s/matrix},\quad
-\texttt{final\_layer\_type\_s/bias},
+\texttt{final\_layer\_type\_s/bias}.
+\end{aligned}
 \]
+
 together with optional residual-scaling nodes \texttt{idt} and the per-species energy
 offset \texttt{bias\_atom\_e}.  
 These parameters are extracted as described in
