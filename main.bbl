@@ -165,6 +165,47 @@
       \field{volume}{159}
       \field{year}{2023}
     \endentry
+    \entry{zhong2025hydrogen}{article}{}{}
+      \name{author}{3}{}{%
+        {{hash=d71fce802a92449f09bdf8439697408b}{%
+           family={Zhong},
+           familyi={Z\bibinitperiod},
+           given={Xin},
+           giveni={X\bibinitperiod}}}%
+        {{hash=bfef2a47b86cf55b9276703c80c56686}{%
+           family={Höfling},
+           familyi={H\bibinitperiod},
+           given={Felix},
+           giveni={F\bibinitperiod}}}%
+        {{hash=02a76ac876e3db17a7a913916b5f5484}{%
+           family={John},
+           familyi={J\bibinitperiod},
+           given={Timm},
+           giveni={T\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Wiley Online Library}%
+      }
+      \strng{namehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{fullhash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{fullhashraw}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{bibnamehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authorbibnamehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authornamehash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authorfullhash}{dd2da457d0d46f863b6250986f8bf380}
+      \strng{authorfullhashraw}{dd2da457d0d46f863b6250986f8bf380}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Geochemistry, Geophysics, Geosystems}
+      \field{number}{2}
+      \field{title}{Hydrogen diffusion in garnet: Insights from atomistic simulations}
+      \field{volume}{26}
+      \field{year}{2025}
+      \field{pages}{e2024GC011951}
+      \range{pages}{-1}
+    \endentry
     \entry{colberg2011highly}{article}{}{}
       \name{author}{2}{}{%
         {{hash=f909c9cf5235125103b43f49fa8cfec3}{%
@@ -952,47 +993,6 @@
       \field{note}{Supporting data for: DeePMD-kit v2: A software package for deep potential models, J. Chem. Phys., 159, 054801 (2023)}
       \field{title}{Data for DeePMD-kit v2 paper}
       \field{year}{2023}
-    \endentry
-    \entry{zhong2025hydrogen}{article}{}{}
-      \name{author}{3}{}{%
-        {{hash=d71fce802a92449f09bdf8439697408b}{%
-           family={Zhong},
-           familyi={Z\bibinitperiod},
-           given={Xin},
-           giveni={X\bibinitperiod}}}%
-        {{hash=bfef2a47b86cf55b9276703c80c56686}{%
-           family={Höfling},
-           familyi={H\bibinitperiod},
-           given={Felix},
-           giveni={F\bibinitperiod}}}%
-        {{hash=02a76ac876e3db17a7a913916b5f5484}{%
-           family={John},
-           familyi={J\bibinitperiod},
-           given={Timm},
-           giveni={T\bibinitperiod}}}%
-      }
-      \list{publisher}{1}{%
-        {Wiley Online Library}%
-      }
-      \strng{namehash}{dd2da457d0d46f863b6250986f8bf380}
-      \strng{fullhash}{dd2da457d0d46f863b6250986f8bf380}
-      \strng{fullhashraw}{dd2da457d0d46f863b6250986f8bf380}
-      \strng{bibnamehash}{dd2da457d0d46f863b6250986f8bf380}
-      \strng{authorbibnamehash}{dd2da457d0d46f863b6250986f8bf380}
-      \strng{authornamehash}{dd2da457d0d46f863b6250986f8bf380}
-      \strng{authorfullhash}{dd2da457d0d46f863b6250986f8bf380}
-      \strng{authorfullhashraw}{dd2da457d0d46f863b6250986f8bf380}
-      \field{sortinit}{4}
-      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{journaltitle}{Geochemistry, Geophysics, Geosystems}
-      \field{number}{2}
-      \field{title}{Hydrogen diffusion in garnet: Insights from atomistic simulations}
-      \field{volume}{26}
-      \field{year}{2025}
-      \field{pages}{e2024GC011951}
-      \range{pages}{-1}
     \endentry
   \enddatalist
 \endrefsection
