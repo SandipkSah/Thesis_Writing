@@ -17,6 +17,10 @@
 \usepackage{float} % make sure this is in your preamble
 
 
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+
+
 \pdfadjustspacing=1
 
 \newcommand{\mylastname}{Sah}
@@ -24,7 +28,7 @@
 \newcommand{\mynumber}{5589263}
 \newcommand{\myname}{\myfirstname{} \mylastname{}}
 % \newcommand{\mytitle}{A fast implementation of deep neural-network potentials for molecular dynamics simulations of alloys}
-\newcommand{\mytitle}{Accurate implementation of DeepMD-v2 Potential calculation in HALMD for single species, extension to multi-species and Automatic-Differentiation-Based Force Computation}
+\newcommand{\mytitle}{Accurate implementation of DeepMD-v2 potential calculation in HALMD for single species, extension to multi-species and Automatic-Differentiation-Based Force Computation}
 \newcommand{\mysupervisor}{Prof. Dr. Felix Höfling}
 
 \hypersetup{
@@ -41,7 +45,7 @@
 \thispagestyle{empty}
 
 \begin{flushright}
-  \includegraphics[width=0.35\textwidth]{fub_logo_2.svg.png}
+  \includegraphics[width=0.35\textwidth]{./images/fub_logo_2.svg.png}
 \end{flushright}
 \vspace{10mm}
 
@@ -62,7 +66,7 @@
 \vspace*{20mm}
 \begin{center}
   \Large
-  Master Thesis in Computational Science
+  Master thesis in Computational Science
 \end{center}
 \vfill
 \begin{flushleft}
@@ -278,7 +282,7 @@ Date:\hfill Signature:
 \section{Introduction}
 \subsection{Motivation}
 
-Molecular dynamics (MD) simulations play a central role in materials science by providing atomistic insight into the behavior of complex systems. Their predictive power depends on the interatomic potential used to approximate the underlying potential energy surface (PES). Classical empirical potentials are efficient but often too rigid to describe complex bonding environments, whereas \textit{ab initio} methods offer high accuracy at prohibitive computational cost. Machine-learned interatomic potentials---particularly the Deep Potential Molecular Dynamics (DeepMD) framework---bridge this gap by achieving near--quantum mechanical accuracy with classical-MD performance.
+Molecular dynamics (MD) simulations play a central role in materials science by providing atomistic insight into the behavior of complex systems. Their predictive power depends on the interatomic potential used to approximate the underlying potential energy surface (PES). Classical empirical potentials are efficient but often too rigid to describe complex bonding environments, whereas \textit{ab initio} methods offer high accuracy at prohibitive computational cost. Machine-learned interatomic potentials---particularly the deep potential Molecular Dynamics (DeepMD) framework---bridge this gap by achieving near--quantum mechanical accuracy with classical-MD performance.
 
 The work by Andrés Cruz, titled \textit{``Deep Neural Networks Potentials for Scalable Molecular Dynamics Simulations on Accelerator Hardware''} \cite{cruz2025deepmd}, represents an important step toward integrating Deep Potential models into the high-performance GPU-accelerated simulation engine HALMD. His work reconstructs the DeePMD-kit inference pipeline inside HALMD, extracts network weights from a trained TensorFlow model, and validates energy and force predictions for a \textit{single-species Copper system}. In particular, his implementation focuses on the \textit{two-body embedding smooth edition, DeepPot-SE descriptor} and reproduces the filter and fitting networks \textit{only for a monoatomic system}, making it suitable for single metal.
 
@@ -306,7 +310,7 @@ This work builds directly on the work of Cruz \cite{cruz2025deepmd} and advances
 
 Through these extensions, the present thesis transforms HALMD from supporting a prototype single-component DeepMD potential into a \textit{ high-accuracy, multi-species DeepMD-v2 engine}. This significantly broadens HALMD's applicability, enabling large-scale molecular dynamics simulations of technologically relevant multicomponent materials at near--quantum mechanical accuracy.
 
-\subsection{Objectives and Scope}
+\subsection{Objectives and scope}
 
 The objective of this thesis is to extend and generalize the Deep Potential (DeePot) implementation in HALMD beyond the single-species, two-body descriptor developed by Cruz \cite{cruz2025deepmd}. While Cruz's work successfully demonstrated that HALMD can evaluate a DeePMD-v2 model for a monoatomic copper system, several components required for full multi-species DeepMD-v2 inference were missing. Most notably, the previous implementation did not include (i) the periodic coordinate extension and neighbor-list construction used in DeepMD \cite{wang2018deepmd}, (ii) normalization and scaling layers defined in the DP-v2 framework \cite{zeng2023deepmdv2}, (iii) species-dependent descriptors, or (iv) descriptor and filter weights that depend simultaneously on the central and neighbor species, as introduced in the multi-species DeepPot-SE descriptor \cite{zeng2023deepmdv2}.
 
@@ -338,12 +342,13 @@ This thesis focuses exclusively on the inference stage of DeepMD-v2, i.e., the c
 
 
 % % ===============================
+\newpage
 \section{Background}
 
 
-\subsection{Ab Initio Molecular Dynamics and Car--Parrinello Molecular Dynamics}
+\subsection{Ab initio molecular dynamics(AIMD) and Car--Parrinello molecular dynamics(CPMD)}
 
-Ab initio molecular dynamics (AIMD) comprises a class of simulation methods in which
+AIMD comprises a class of simulation methods in which
 interatomic forces are computed directly from quantum-mechanical electronic structure
 calculations, rather than from predefined empirical potentials. In AIMD, the potential
 energy surface governing atomic motion is evaluated on-the-fly, most commonly within
@@ -361,7 +366,7 @@ atomic positions are advanced according to Newton’s equations of motion. While
 approach yields highly accurate forces, the repeated SCF minimization renders BOMD
 computationally expensive.
 
-Car--Parrinello molecular dynamics (CPMD) provides an alternative formulation of AIMD
+CPMD provides an alternative formulation of AIMD
 that avoids an explicit electronic ground-state optimization at every time step.
 Instead, CPMD introduces an extended Lagrangian in which both nuclear positions and
 Kohn--Sham electronic orbitals are treated as time-dependent variables. The electronic
@@ -389,10 +394,9 @@ thesis, CPMD serves as a methodological benchmark that defines the target accura
 interatomic force models and motivates the use of machine-learned potentials capable of
 reproducing first-principles accuracy at reduced computational cost.
 
-\subsection{HALMD Software}
+\subsection{High-accuracy large-scale molecular dynamics (HALMD) software}
 
-The High-Accuracy Large-scale Molecular Dynamics (HALMD) package is a high-performance,
-open-source molecular dynamics (MD) simulation framework designed for large-scale studies
+HALMD package is a high-performance, open-source molecular dynamics simulation framework designed for large-scale studies
 of condensed matter systems. HALMD is built around a modular C++ architecture with a
 strong emphasis on numerical precision, extensibility, and efficient parallel execution
 on graphics processing units (GPUs) \cite{colberg2011highly}. It provides the
@@ -401,10 +405,12 @@ particles over long physical time scales.
 
 HALMD employs the classical molecular dynamics approach, in which atomic motion is
 governed by Newton’s equations of motion,
-\[
-m_i \frac{d^2 \mathbf{r}_i}{dt^2}
-= - \nabla_i U(\mathbf{r}_1, \mathbf{r}_2, \ldots, \mathbf{r}_N),
-\]
+
+\begin{equation}
+   m_i \frac{d^2 \mathbf{r}_i}{dt^2}
+    = - \nabla_i U(\mathbf{r}_1, \mathbf{r}_2, \ldots, \mathbf{r}_N), 
+\end{equation}
+
 where the potential energy function \( U \) describes interatomic interactions. In
 standard applications, \( U \) is given by analytical or tabulated empirical potentials,
 such as the Lennard--Jones, Gaussian Core, or Yukawa models. While these models are
@@ -453,14 +459,15 @@ modeling.
 
 
 
-\subsection{Neural Network Potentials}
+\subsection{Neural network potential (NNP)}
 
-In recent years, machine learning techniques—particularly deep neural networks (DNNs) have revolutionized the construction of interatomic potentials for molecular dynamics simulations. Traditional analytical potentials, while computationally efficient, are often limited in their ability to accurately capture many-body interactions and chemical complexities across diverse atomic environments. Neural Network Potentials (NNPs) overcome these limitations by learning the potential energy surface (PES) directly from \textit{ab initio} reference data \cite{behler2007generalized, noe2020mlreview}.
+In recent years, machine learning techniques—particularly deep neural networks (DNNs) have revolutionized the construction of interatomic potentials for molecular dynamics simulations. Traditional analytical potentials, while computationally efficient, are often limited in their ability to accurately capture many-body interactions and chemical complexities across diverse atomic environments. NNPs  overcome these limitations by learning the potential energy surface (PES) directly from \textit{ab initio} reference data \cite{behler2007generalized, noe2020mlreview}.
 
 In the NNP framework, a neural network is trained to approximate the mapping between an atomic configuration and its corresponding total energy and atomic forces. The total potential energy of a system is commonly expressed as a sum of atomic contributions \cite{behler2007generalized}:
-\[
-E = \sum_i E_i(\mathcal{R}_i),
-\]
+\begin{equation}
+    E = \sum_i E_i(\mathcal{R}_i),
+\end{equation}
+
 where \(E_i\) denotes the atomic energy associated with atom \(i\), and \(\mathcal{R}_i\) represents its local environment within a cutoff radius. This decomposition ensures extensivity and locality and enables efficient scaling with system size.
 
 
@@ -488,42 +495,43 @@ normalization across all contributions to the loss.
 
 During inference, atomic coordinates are transformed into symmetry-preserving descriptors that are invariant under translation, rotation, and permutation of atoms of the same type \cite{bartok2013representing, zaheer2017deepsets}. These descriptors serve as input to the neural network, which predicts atomic energies and corresponding forces in real time, achieving \textit{ab initio}-level accuracy at computational cost comparable to classical MD.
 
-A variety of neural-network-based interatomic potentials have been proposed, including Behler–Parrinello networks \cite{behler2007generalized}, Gaussian Approximation Potentials (GAP) \cite{bartok2015gap}, SchNet \cite{schutt2017schnet}, and the E(3)-equivariant NequIP model \cite{batzner2022nequib}. Among these, the Deep Potential Molecular Dynamics (DeepMD) framework has emerged as one of the most widely adopted and computationally efficient implementations due to its smooth descriptor formulation and native GPU acceleration. The following subsection focuses specifically on \textbf{DeepMD-kit version 2}, which forms the theoretical and computational foundation for the present work.
+A variety of neural-network-based interatomic potentials have been proposed, including Behler–Parrinello networks \cite{behler2007generalized}, Gaussian approximation potentials (GAP) \cite{bartok2015gap}, SchNet \cite{schutt2017schnet}, and the E(3)-equivariant NequIP model \cite{batzner2022nequib}. Among these, the deep potential molecular dynamics (DeepMD) framework has emerged as one of the most widely adopted and computationally efficient implementations due to its smooth descriptor formulation and native GPU acceleration. The following subsection focuses specifically on \textit{DeepMD-kit version 2}, which forms the theoretical and computational foundation for the present work.
 
 
 
 
-\subsection{Deep Potential Molecular Dynamics (DeepMD)}
+\subsection{DeepMD}
 
-This work focuses on \textbf{Deep Potential Molecular Dynamics version~2 (DeepMD-kit v2)}, the second-generation implementation of the Deep Potential framework. DeepMD-kit v2 represents a major advancement over the original DeepMD formulation~\cite{wang2018deepmd}, introducing improved descriptor smoothness, enhanced multi-species handling, and a refined software architecture that enables highly efficient GPU execution~\cite{zeng2023deepmdv2}. These features make DeepMD-kit v2 particularly suitable for modeling chemically complex systems such as binary alloys within HALMD.
+This work focuses on \textit{DeepMD version~2 kit}, the second-generation implementation of the Deep Potential framework. DeepMD-kit v2 represents a major advancement over the original DeepMD formulation~\cite{wang2018deepmd}, introducing improved descriptor smoothness, enhanced multi-species handling, and a refined software architecture that enables highly efficient GPU execution~\cite{zeng2023deepmdv2}. These features make DeepMD-kit v2 particularly suitable for modeling chemically complex systems such as binary alloys within HALMD.
 
-Deep Potential Molecular Dynamics is a machine-learning approach that approximates interatomic interactions with near \textit{ab initio} accuracy while retaining computational efficiency comparable to classical MD. A neural network is trained on quantum-mechanical reference data (typically from DFT or AIMD) to map atomic configurations to energies and forces. The total potential energy of the system is decomposed into atomic energy contributions~\cite{wang2018deepmd, zeng2023deepmdv2}:
+Deep potential molecular dynamics is a machine-learning approach that approximates interatomic interactions with near \textit{ab initio} accuracy while retaining computational efficiency comparable to classical MD. A neural network is trained on quantum-mechanical reference data (typically from DFT or AIMD) to map atomic configurations to energies and forces. The total potential energy of the system is decomposed into atomic energy contributions~\cite{wang2018deepmd, zeng2023deepmdv2}:
 \[
 E = \sum_{i} E_i(\mathcal{R}_i),
 \]
 where \(E_i\) is the atomic energy of atom \(i\), and $\mathcal{R}_i$ denotes its local environment within a cutoff radius \(r_c\). This locality assumption yields linear scaling in the number of atoms and enables efficient parallelization on GPUs.
 
-A defining element of DeepMD is the use of symmetry-preserving descriptors that are invariant under translations, rotations, and permutations of atoms of the same type. DeepMD-kit v2 employs the \textit{Smooth Edition} (SE) descriptor family, provided in angular (\texttt{se\_e2\_a}) variants~\cite{zeng2023deepmdv2}. It is constructed from two matrices:
+A defining element of DeepMD is the use of symmetry-preserving descriptors that are invariant under translations, rotations, and permutations of atoms of the same type. DeepMD-kit v2 employs the \textit{smooth edition} (SE) descriptor family, provided in angular (\texttt{se\_e2\_a}) variants~\cite{zeng2023deepmdv2}. It is constructed from two matrices:
 \begin{itemize}
-    \item the \textbf{R-matrix}, containing relative position vectors \( R_{ij} = \mathbf{r}_j - \mathbf{r}_i \) for neighbors \(j\) within the cutoff radius;
-    \item the \textbf{G-matrix}, a normalized representation incorporating angular information and many-body geometric correlations.
+    \item the \textit{R-matrix}, containing relative position vectors \( R_{ij} = \mathbf{r}_j - \mathbf{r}_i \) for neighbors \(j\) within the cutoff radius;
+    \item the \textit{G-matrix}, a normalized representation incorporating angular information and many-body geometric correlations.
 \end{itemize}
 Distances $r_{ij} = |R_{ij}|$ are modulated by a smooth cutoff function to ensure continuity of energies and forces at the cutoff boundary~\cite{wang2018deepmd}.
 
-The Deep Potential model in both DP-v1 and DP-v2 consists of two neural networks: an \textit{embedding (filter) network} and a \textit{fitting network}~\cite{wang2018deepmd, zeng2023deepmdv2}.
+The deep potential model in both DP-v1 and DP-v2 consists of two neural networks: an \textit{embedding (filter) network} and a \textit{fitting network}~\cite{wang2018deepmd, zeng2023deepmdv2}.
 
 \begin{enumerate}
-    \item \textbf{Embedding (Filter) Network.}  
+    \item \textit{Embedding (filter) network.}  
     This smaller feed-forward network transforms raw neighbor information into high-dimensional filter features. In DP-v2, a distinct embedding network is assigned to each atomic species, allowing the model to capture chemically specific interactions (e.g., Cu--Ag, Ni--Al) while preserving permutation invariance within each species~\cite{zeng2023deepmdv2}. The embedding network processes each neighbor independently.
 
-    \item \textbf{Fitting Network.}  
+    \item \textit{Fitting network.}  
     The outputs of the embedding networks are aggregated into a descriptor vector $\mathbf{D}_i$, which is passed to a larger fully connected fitting network that predicts the atomic energy $E_i$. Each species has its own fitting network parameters, enabling accurate modeling of multi-component materials.
 \end{enumerate}
 
 Forces are obtained as the negative gradients of the total energy:
-\[
-\mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.
-\]
+\begin{equation}
+    \mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.   
+\end{equation}
+
 During training, these derivatives are computed automatically through TensorFlow’s backpropagation engine. During inference---which is the focus of this thesis---the gradients are obtained by applying the chain rule explicitly through the descriptor and neural-network layers, following the DeePot-v2 computational graph~\cite{zeng2023deepmdv2}.
 
 DeepMD-kit v2 introduces several enhancements that are essential for accurate multi-species modeling. These include species-dependent embedding networks, species-specific filter weights, descriptor normalization layers, and refined smooth cutoff schemes~\cite{zeng2023deepmdv2}. Together, these improvements enable DeePot-v2 to handle chemically diverse systems with greater smoothness, transferability, and numerical stability compared to its predecessor.
@@ -535,9 +543,10 @@ In this thesis, DeepMD-kit v2 serves as the machine-learned potential that is fu
 
 
 % ===============================
+\newpage
 \section{Methodology}
 
-\subsection{Overview of Implementation}
+\subsection{Overview of implementation}
 
 The integration of DeepMD-v2 into HALMD follows a modular workflow in which each
 stage provides the necessary inputs for the next.  The process begins with
@@ -556,8 +565,85 @@ networks using a combination of analytic expressions and automatic
 differentiation.  Together, these steps enable HALMD to perform full DeepMD-v2
 inference—energies and forces—within its native C++/CUDA simulation loop.
 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.0cm and 1.2cm,
+    box/.style={
+        draw,
+        rectangle,
+        rounded corners,
+        align=center,
+        minimum width=8cm,
+        minimum height=1.0cm,
+        inner sep=4pt
+    },
+    arrow/.style={->, thick}
+]
 
-\subsection{Model Parameter Extraction}
+% Row 1
+\node[box] (input) {%
+\textbf{Input from HALMD MD Step}\\
+Coordinates $r_i$, species $t_i$, box $\{L_x,L_y,L_z\}$
+};
+
+\node[box] (env) [right=of input] {%
+\textbf{Coordinate Extension}\\
+Wrap $\rightarrow$ Ghost $\rightarrow$ extended coordinates 
+};
+
+% Row 2
+\node[box] (R) [below=of env] {%
+\textbf{$R$ Matrix + Normalization}\\
+Compute $R_{ij}$, normalize
+};
+
+\node[box] (filter) [left=of R] {%
+\textbf{Filter Networks}\\
+$G_{ij} =N_{\theta}^{(a,b)}(R_{ij})$
+};
+
+% % Row 3
+% \node[box] (G) [below=of filter] {%
+% \textbf{$G$ Matrix Construction}\\
+% Assemble $G_{ij}$
+% };
+
+\node[box] (D) [below=of filter] {%
+\textbf{Descriptor Construction}\\
+Compute $D_i$ from $G_{ij}$ and $R_{ij}$
+};
+
+% Row 4
+\node[box] (nn) [right=of D] {%
+\textbf{DeepMD Neural Networks}\\
+$E_i = NN_s(D_i)$
+};
+
+\node[box] (energy) [below=of nn] {%
+\textbf{Energy Evaluation}\\
+$E_{\text{total}} = \sum_i E_i$
+};
+
+
+
+% Arrows
+\draw[arrow] (input) -- (env);
+\draw[arrow] (env) -- (R);
+\draw[arrow] (R) -- (filter);
+% \draw[arrow] (filter) -- (G);
+\draw[arrow] (filter) -- (D);
+\draw[arrow] (D) -- (nn);
+\draw[arrow] (nn) -- (energy);
+
+
+\end{tikzpicture}
+\caption{DeepMD--HALMD energy evaluation pipeline implemented in this thesis.}
+\end{figure}
+
+
+
+\subsection{Model parameter extraction}
 \label{sec:model_parameter_extraction}
 
 
@@ -566,7 +652,7 @@ inference—energies and forces—within its native C++/CUDA simulation loop.
 
 
 
-\subsubsection{Frozen Model Structure}
+\subsubsection{Frozen model structure}
 
 The trained DeepMD-v2 potential is distributed as a frozen TensorFlow graph
 (\texttt{frozen\_model.pb}).  
@@ -575,7 +661,7 @@ must be reconstructed from the computation graph.
 The node list extracted from the model (see Appendix~X) contains all
 information required for this reconstruction.
 
-\paragraph{Descriptor attributes.}
+\paragraph{Descriptor attributes:}
 The descriptor section of the graph exposes the physical and structural
 parameters needed to build the environment matrix:
 \begin{itemize}
@@ -587,7 +673,7 @@ parameters needed to build the environment matrix:
 These values uniquely determine the construction of $\hat{R}_i$ and ensure 
 that HALMD reproduces the same geometric preprocessing as DeepMD.
 
-\paragraph{Embedding network.}
+\paragraph{Embedding network:}
 The embedding (filter) network parameters appear under
 \verb|filter_type_0/*|.  
 The suffix \verb|_0| indicates that these parameters correspond to a central
@@ -633,14 +719,17 @@ Each embedding layer provides:
 \end{itemize}
 
 Collectively, these nodes define the mapping
-\[
-  \hat{s}_{ij} \mapsto G_{ij},
-\]
+
+\begin{equation}
+    \hat{s}_{ij} \mapsto G_{ij}
+\end{equation}
+
+
 which transforms the normalized inverse distance into an embedding vector for
 the descriptor.
 
 
-\paragraph{Descriptor production.}
+\paragraph{Descriptor production:}
 The node \verb|ProdEnvMatA| encapsulates the internal DeepMD operation that
 produces the environment matrix and its derivatives:
 \begin{itemize}
@@ -652,7 +741,7 @@ produces the environment matrix and its derivatives:
 These outputs provide the ground truth for validating HALMD's geometric
 derivative implementation.
 
-\paragraph{Fitting network.}
+\paragraph{Fitting network:}
 The atomic-energy fitting network appears under the node groups  
 \verb|layer_0_type_0/*|, \verb|layer_1_type_0/*|,  
 \verb|layer_2_type_0/*|, and \verb|final_layer_type_0/*|.  
@@ -685,13 +774,13 @@ energy/force outputs.  Using these elements, HALMD can reproduce DeepMD-v2
 inference exactly, without relying on TensorFlow.
 
 
-\subsubsection{Extraction Procedure}
+\subsubsection{Extraction procedure}
 
 DeepMD-kit stores trained neural network potentials as a TensorFlow \texttt{frozen\_model.pb} file, accompanied by an \texttt{input.json} file containing model hyperparameters. The \texttt{.pb} file encodes all numerical weights, biases, and auxiliary tensors in the form of TensorFlow computation graph nodes, while the JSON file specifies the descriptor type, cutoff radius, number of neurons per layer, activation functions, and species layout. Following the methodology of DeepMD-kit v1 and v2 \cite{wang2018deepmd, zeng2023deepmdv2}, this thesis extracts all necessary model parameters from these files and converts them into an HDF5 representation suitable for efficient inference inside HALMD.
 
-The extraction process begins by loading the TensorFlow graph definition from the \texttt{.pb} file. All tensors of type \texttt{Const} are scanned, and those whose node names match descriptor or fitting-network layers are decoded using TensorFlow’s low-level \texttt{tensor\_util.MakeNdarray}. The DeepMD model contains one set of parameters per atomic species, and the species ordering in the output strictly follows the ordering defined in the DeepMD input configuration. For the work presented here, the descriptor type is always the angular Smooth Edition descriptor \texttt{se\_e2\_a}, which DeepMD-kit v2 uses for multi-species models requiring both radial and angular correlation encoding.
+The extraction process begins by loading the TensorFlow graph definition from the \texttt{.pb} file. All tensors of type \texttt{Const} are scanned, and those whose node names match descriptor or fitting-network layers are decoded using TensorFlow’s low-level \texttt{tensor\_util.MakeNdarray}. The DeepMD model contains one set of parameters per atomic species, and the species ordering in the output strictly follows the ordering defined in the DeepMD input configuration. For the work presented here, the descriptor type is always the angular SE descriptor \texttt{se\_e2\_a}, which DeepMD-kit v2 uses for multi-species models requiring both radial and angular correlation encoding.
 
-\paragraph{Descriptor Parameters.}
+\paragraph{Descriptor parameters:}
 For each species, the descriptor section consists of a stack of fully connected layers with user-specified neuron counts, activation functions, and optional residual time-step connections. The extraction script identifies each descriptor layer via a naming pattern of the form
 % \[
 % \texttt{filter\_type\_}<s>/\texttt{matrix\_}<k>_<t_n>, \qquad
@@ -711,10 +800,10 @@ where \(s\) indexes the species, \(k\) is the layer index, and \(t_n\) enumerate
 \end{itemize}
 DeepMD-v2 allows descriptor layers to use residual updates when \texttt{resnet\_dt=true}. In that case, a per-layer time-step tensor is extracted and marked in the output structure, though the use of residual updates depends on the model’s training configuration.
 
-\paragraph{Embedding (Filter) Network.}
+\paragraph{Embedding (filter) network:}
 In the DeepMD architecture, the descriptor network is conceptually equivalent to the “filter” or embedding network described in \cite{wang2018deepmd, zeng2023deepmdv2}. Each species has its own filter-network parameters to account for species-dependent geometric correlations. The extracted filter-network weights are reshaped into a row-major layout compatible with HALMD’s GPU evaluation kernels.
 
-\paragraph{Fitting Network.}
+\paragraph{Fitting network:}
 For each species, the fitting network (also called the main network) predicts the atomic energy contribution \(E_i\). The extraction process retrieves:
 \begin{itemize}
     \item all intermediate fitting layers,
@@ -730,7 +819,7 @@ The fitting-network layers are identified using a template of the form
 \]
 and similarly for the final layer \texttt{final\_layer\_type\_<s>}. The final layer uses a fixed activation function, typically \texttt{linear}, consistent with the DeepMD energy formulation.
 
-\paragraph{Normalization Parameters.}
+\paragraph{Normalization parameters:}
 DeepMD-v2 introduces descriptor normalization tensors \texttt{t\_avg} and \texttt{t\_std}, which are required to maintain numerical stability and descriptor smoothness. These tensors are extracted from the nodes
 \[
 \texttt{descrpt\_attr/t\_avg}, \qquad
@@ -738,7 +827,7 @@ DeepMD-v2 introduces descriptor normalization tensors \texttt{t\_avg} and \textt
 \]
 and stored in the HDF5 output so that HALMD can apply the same normalization as the original DeepMD model.
 
-\paragraph{Organization and Output Format.}
+\paragraph{Organization and output format:}
 All extracted parameters are written into a structured HDF5 file using a hierarchical layout:
 \begin{itemize}
     \item global descriptor constants (cutoff radii, smoothing radii, normalization tensors),
@@ -747,11 +836,11 @@ All extracted parameters are written into a structured HDF5 file using a hierarc
 \end{itemize}
 This structure mirrors the multi-species design of DeepMD-kit v2 and makes the extracted parameters directly usable by HALMD for inference. Unlike the single-species extraction used in the previous HALMD implementation \cite{cruz2025deepmd}, the present work extracts and stores fully species-resolved descriptor and fitting-network data, which are required for accurate multi-species DeepMD-v2 inference.
 
-The resulting HDF5 file serves as the unified model representation for HALMD. During the simulation, HALMD loads this file, reconstructs the descriptor and neural networks using GPU-optimized data structures, and performs inference without relying on TensorFlow. This enables the Deep Potential model to be evaluated natively within HALMD’s simulation loop with high performance and full multi-species support.
+The resulting HDF5 file serves as the unified model representation for HALMD. During the simulation, HALMD loads this file, reconstructs the descriptor and neural networks using GPU-optimized data structures, and performs inference without relying on TensorFlow. This enables the deep potential model to be evaluated natively within HALMD’s simulation loop with high performance and full multi-species support.
 
 
 
-\subsection{Coordinate System Extension }
+\subsection{Coordinate system extension }
 \label{sec:env_construction}
 
 A central contribution of this thesis is the redesign of HALMD’s environment–construction 
@@ -760,7 +849,7 @@ implementation by Cruz~\cite{cruz2025deepmd} relied on HALMD’s built-in period
 handling and neighbour list, which correctly satisfy the minimum-image convention used in 
 classical MD~\cite{colberg2011highly}. However, this approach provides only the minimal 
 displacement between atoms and does not reproduce the full periodic environment expected by 
-the Deep Potential (DP) descriptor pipeline. DeepMD-v2 requires explicit coordinate wrapping, 
+the DP descriptor pipeline. DeepMD-v2 requires explicit coordinate wrapping, 
 ghost-cell expansion, species-aware neighbour grouping, and descriptor normalization 
 \cite{wang2018deepmd, zeng2023deepmdv2}. These steps are essential for reproducing the 
 descriptor inputs used during training.
@@ -775,41 +864,41 @@ primary simulation cell before any descriptor quantities are computed.
 This is stricter than the minimum-image convention normally used in
 classical molecular dynamics, where only the *differences* between
 coordinates need to be mapped back into the simulation box.  
-DeepMD, however, expects the *absolute coordinates* of every atom to lie
-within the interval
-\[
-[0,\,L_\alpha)
-\qquad\text{for each Cartesian direction } \alpha\in\{x,y,z\}.
-\]
+DeepMD, however, expects the \emph{absolute coordinates} of every atom to lie
+within the interval $[0, L_\alpha)$ for each Cartesian direction
+$\alpha \in \{x, y, z\}$.
 
 
 To ensure consistency, each coordinate component is mapped explicitly
 into the primary simulation box using
-\[
-\tilde{r}_{i\alpha}
-=
-r_{i\alpha}
--
-L_\alpha 
-\left\lfloor \frac{r_{i\alpha}}{L_\alpha} \right\rfloor .
-\]
+\begin{equation}
+    \tilde{r}_{i\alpha}
+    =
+    r_{i\alpha}
+    -
+    L_\alpha 
+    \left\lfloor \frac{r_{i\alpha}}{L_\alpha} \right\rfloor .
+\end{equation}
+
 
 This operation performs the following steps:
 
 \begin{itemize}
     \item Compute the integer number of box lengths by which the particle
           has moved:
-          \[
-          n_\alpha = \left\lfloor \frac{r_{i\alpha}}{L_\alpha} \right\rfloor .
-          \]
+          \begin{equation}
+            n_\alpha = \left\lfloor \frac{r_{i\alpha}}{L_\alpha} \right\rfloor .
+          \end{equation}
+         
           This may be positive (particle drifted to the right), negative
           (particle drifted to the left), or zero.
 
     \item Subtract exactly $n_\alpha L_\alpha$ from the coordinate so that
           the result lies in the interval $[0, L_\alpha)$:
-          \[
-          \tilde{r}_{i\alpha} = r_{i\alpha} - n_\alpha L_\alpha .
-          \]
+          \begin{equation}
+            \label{eq:coordinate_wrapping}
+            \tilde{r}_{i\alpha} = r_{i\alpha} - n_\alpha L_\alpha 
+          \end{equation}
 
     \item The wrapped coordinates $\tilde{\mathbf{r}}_i$ now correspond to
           the representation DeepMD expects as input.
@@ -846,27 +935,30 @@ To achieve DeepMD-compatible behaviour, the present work implements full
 ghost-cell tiling. For each wrapped coordinate \( \tilde{\mathbf{r}}_i \), the
 periodic images are generated as
 
-\[
-\mathbf{r}_i^{(\mathbf{s})}
-=
-\tilde{\mathbf{r}}_i
-+
-s_x L_x\, \mathbf{e}_x
-+
-s_y L_y\, \mathbf{e}_y
-+
-s_z L_z\, \mathbf{e}_z,
-\qquad
-s_\alpha \in [-n_{\mathrm{buff},\alpha},\, n_{\mathrm{buff},\alpha}],
-\]
+\begin{equation}
+\label{eq:ghost_expansion}
+    \mathbf{r}_i^{(\mathbf{s})}
+    =
+    \tilde{\mathbf{r}}_i
+    +
+    s_x L_x\, \mathbf{e}_x
+    +
+    s_y L_y\, \mathbf{e}_y
+    +
+    s_z L_z\, \mathbf{e}_z,
+    \qquad
+    s_\alpha \in [-n_{\mathrm{buff},\alpha},\, n_{\mathrm{buff},\alpha}],
+\end{equation}
 
-where \(L_\alpha\) are the box lengths and  
 
-\[
-n_{\mathrm{buff},\alpha}
-=
-\Big\lceil \frac{r_c}{L_\alpha} \Big\rceil
-\]
+
+where \(L_\alpha\) are the box lengths and 
+\begin{equation}
+    n_{\mathrm{buff},\alpha}
+    =
+    \Big\lceil \frac{r_c}{L_\alpha} \Big\rceil
+\end{equation} 
+
 
 ensures full spatial coverage of the cutoff sphere.  
 For a cubic cell with \( n_{\mathrm{buff}} = 1 \), this produces
@@ -964,23 +1056,50 @@ t_j = a,\; r_{ij} < r_c
 where $t_j$ is the species of neighbour $j$.
 Each such list contains only the neighbours belonging to species $a$.
 
-\paragraph{Distance sorting within each species group.}
-DeepMD requires each species block to be internally sorted by distance.
-Thus, for every species $a$, the list
-$\text{neighbors\_by\_type}[a]$ is sorted according to $r_{ij}$:
+% \paragraph{Distance sorting within each species group.}
+% DeepMD requires each species block to be internally sorted by distance.
+% Thus, for every species $a$, the list
+% $\text{neighbors\_by\_type}[a]$ is sorted according to $r_{ij}$:
+% \[
+% \text{sort}\bigl(\text{neighbors\_by\_type}[a],\; \text{key} = r_{ij} \bigr).
+% \]
+
+% This ensures that:
+% \begin{itemize}
+%     \item the nearest neighbours of each species appear first,
+%     \item rows of the descriptor matrices corresponding to species $a$ match the
+%           exact order used by DeepMD-kit,
+%     \item neighbour-dependent neural networks receive inputs in the correct,
+%           deterministic order.
+% \end{itemize}
+
+
+\paragraph{Sorting omitted for efficiency.}
+In the reference DeepMD implementation, each species block of neighbours is
+explicitly sorted by increasing interatomic distance,
 \[
-\text{sort}\bigl(\text{neighbors\_by\_type}[a],\; \text{key} = r_{ij} \bigr).
+\text{neighbors\_by\_type}[a]
+\;\leftarrow\;
+\text{sort}\!\left(
+\text{neighbors\_by\_type}[a],\; \text{key} = r_{ij}
+\right),
 \]
+in order to impose a deterministic and easily interpretable layout of the
+neighbour environments.  
 
-This ensures that:
-\begin{itemize}
-    \item the nearest neighbours of each species appear first,
-    \item rows of the descriptor matrices corresponding to species $a$ match the
-          exact order used by DeepMD-kit,
-    \item neighbour-dependent neural networks receive inputs in the correct,
-          deterministic order.
-\end{itemize}
+In the present implementation, this explicit distance-based sorting step is
+omitted. The subsequent construction of the environment matrices \(R\) and
+\(G\), together with the associated embedding-network evaluation, preserves the
+relative correspondence between neighbour entries and their geometric features.
+Consequently, the numerical values of the resulting descriptors and predicted
+energies remain invariant under permutations of neighbours within a given
+species block.
 
+Since the descriptor pipeline and fitting network are permutation-equivariant
+within each species channel, removing the sorting step does not affect the
+physical correctness of the model evaluation but eliminates an additional
+\(\mathcal{O}(N \log N)\) cost per atom per species, thereby improving runtime
+performance for large systems.
 
 
 \subsubsection{Applying the \texttt{sel} constraint}
@@ -990,7 +1109,7 @@ number of neighbour entries for each species, as prescribed by the vector
 \[
 \texttt{sel} = \bigl[ N_c^{(0)},\, N_c^{(1)},\, \dots \bigr].
 \]
-After grouping neighbours by species and sorting them by distance, each species
+After grouping neighbours by species, each species
 block is adjusted to have exactly \(N_c^{(a)}\) rows:
 \[
 \widehat{\mathrm{neighbors\_by\_type}}[a]
@@ -1060,7 +1179,136 @@ for enabling HALMD to evaluate multi-species DeepMD-v2 models correctly.
 % \subsection{Computation of R and G Matrices}
 % \subsubsection{R Matrix}
 
-\subsection{Construction of the Configuration Matrix $R$}
+% \subsection{Construction of the configuration matrix $R$}
+% \label{sec:R_matrix_construction}
+
+% Once wrapped coordinates, ghost-cell expansions, and species-ordered neighbour
+% lists have been obtained (Section~\ref{sec:env_construction}), the next task is to
+% construct the geometric matrix \(R\).  
+% This matrix encodes the local atomic environment of a central atom \(i\) in a way that
+% is translationally, rotationally, and permutation invariant
+% \cite{wang2018deepmd,zeng2023deepmdv2}.  
+% Each of the \(N_c^{\mathrm{(total)}}\) neighbour slots contributes one row of four geometric
+% quantities.
+
+% \subsubsection{Relative displacement and inverse-distance quantities}
+
+% For each neighbour selected into the fixed-capacity list, the relative displacement is computed
+% using the \emph{wrapped and ghost-extended coordinates}:
+% \[
+% \mathbf{r}_{ij} = \mathbf{r}_j^{(\mathbf{s})} - \tilde{\mathbf{r}}_i
+% \quad\in \mathbb{R}^3 , 
+% \qquad
+% r_{ij} = \lVert \mathbf{r}_{ij} \rVert \in \mathbb{R}.
+% \]
+
+% \subsubsection{Raw geometric row}
+
+% DeepMD defines the raw geometric features of neighbour \(j\) (row index \(k\)) as
+% \[
+% R_{k}
+% =
+% \left[
+%     s_{ij},\;
+%     \frac{x_{ij}}{r_{ij}^{2}},\;
+%     \frac{y_{ij}}{r_{ij}^{2}},\;
+%     \frac{z_{ij}}{r_{ij}^{2}}
+% \right]
+% \quad\in\mathbb{R}^{4},
+% \qquad
+% s_{ij} = \frac{1}{r_{ij}}.
+% \]
+% Collecting all rows yields the matrix
+% \[
+% R \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+% \]
+
+% \subsubsection{Cutoff behaviour and switching function}
+
+% To ensure smooth decay near the cutoff radius, DeepMD applies a quintic switching function:
+% \begin{equation}
+%     f_{\mathrm{sw}}(r)=
+%     \begin{cases}
+%     1, & r \le r_{\mathrm{sm}},\\[2pt]
+%     x^3(-6x^2+15x-10)+1, & r_{\mathrm{sm}}<r<r_c,\\[2pt]
+%     0, & r \ge r_c,
+%     \end{cases}
+%     \qquad
+%     x = \frac{r-r_{\mathrm{sm}}}{r_c - r_{\mathrm{sm}}}.
+% \end{equation}
+
+
+% The resulting weight vector is
+% \[
+% w_k = f_{\mathrm{sw}}(r_{ij(k)}),
+% \qquad
+% w \in \mathbb{R}^{N_c^{\mathrm{(total)}}}.
+% \]
+
+% Applying this weight yields the weighted geometric matrix
+% \[
+% R^{\mathrm{w}}_{k,\alpha} = R_{k,\alpha} \, w_k ,
+% \qquad
+% R^{\mathrm{w}} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+% \]
+
+% \subsubsection{Species-aware neighbour ordering}
+
+% DeepMD-v2 requires neighbours to be arranged according to:
+% \begin{enumerate}
+%     \item neighbour species,
+%     % \item increasing neighbour distance within each species,
+%     \item a fixed per-species capacity determined by
+%     \[
+%         \texttt{sel} = [N_c^{(0)},\, N_c^{(1)},\dots ].
+%     \]
+% \end{enumerate}
+
+% After this procedure, every central atom receives a geometric matrix with the same
+% shape:
+% \[
+% R^{\mathrm{w}} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+% \]
+
+% \subsubsection{Normalization of geometric features}
+
+% DeepMD-v2 applies feature-wise normalization using tensors
+% \[
+% t_{\mathrm{avg}},\ t_{\mathrm{std}}
+% \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+% \]
+
+% The normalized geometric matrix is
+% \begin{equation}
+%     \hat{R}_{k,\alpha}
+%     =
+%     \frac{
+%         R^{\mathrm{w}}_{k,\alpha} - (t_{\mathrm{avg}})_{k,\alpha}
+%     }{
+%         (t_{\mathrm{std}})_{k,\alpha}
+%     },
+%     \qquad
+%     \hat{R} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+% \end{equation}
+
+
+% The first column,
+% \[
+% \hat{s}_{ij} = \hat{R}_{ij,0},
+% \]
+% serves as the scalar input to the embedding network.
+
+% \subsubsection{Summary}
+
+% The constructed matrix
+% \[
+% \hat{R} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}
+% \]
+% is bitwise compatible with DeepMD-v2 and provides the geometric inputs for the next
+% stage of the descriptor.
+
+
+\subsection{Construction of the configuration matrix $R$}
 \label{sec:R_matrix_construction}
 
 Once wrapped coordinates, ghost-cell expansions, and species-ordered neighbour
@@ -1072,123 +1320,101 @@ is translationally, rotationally, and permutation invariant
 Each of the \(N_c^{\mathrm{(total)}}\) neighbour slots contributes one row of four geometric
 quantities.
 
-\subsubsection{Relative displacement and inverse-distance quantities}
 
-For each neighbour selected into the fixed-capacity list, the relative displacement is computed
-using the \emph{wrapped and ghost-extended coordinates}:
+\subsubsection{Relative displacement}
+
+Here, $\tilde{\mathbf r}_i$ denotes the wrapped coordinate of atom $i$ obtained by
+the coordinate mapping in Eq.~\eqref{eq:coordinate_wrapping}, and
+$\mathbf r_j^{(\mathbf s)}$ denotes the ghost-extended coordinate of neighbour
+atom $j$ constructed via the periodic expansion in Eq.~\eqref{eq:ghost_expansion}.
+
+The relative displacement vector and its magnitude are then given by
 \[
-\mathbf{r}_{ij} = \mathbf{r}_j^{(\mathbf{s})} - \tilde{\mathbf{r}}_i
-\quad\in \mathbb{R}^3 , 
+\mathbf r_{ij} = \mathbf r_j^{(\mathbf s)} - \tilde{\mathbf r}_i,
 \qquad
-r_{ij} = \lVert \mathbf{r}_{ij} \rVert \in \mathbb{R}.
+r_{ij} = \lVert \mathbf r_{ij} \rVert .
 \]
 
-\subsubsection{Raw geometric row}
-
-DeepMD defines the raw geometric features of neighbour \(j\) (row index \(k\)) as
-\[
-R^{\mathrm{raw}}_{k}
-=
-\left[
-    s_{ij},\;
-    \frac{x_{ij}}{r_{ij}^{2}},\;
-    \frac{y_{ij}}{r_{ij}^{2}},\;
-    \frac{z_{ij}}{r_{ij}^{2}}
-\right]
-\quad\in\mathbb{R}^{4},
-\qquad
-s_{ij} = \frac{1}{r_{ij}}.
-\]
-Collecting all rows yields the matrix
-\[
-R^{\mathrm{raw}} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-\]
 
 \subsubsection{Cutoff behaviour and switching function}
 
-To ensure smooth decay near the cutoff radius, DeepMD applies a quintic switching function:
-\[
-f_{\mathrm{sw}}(r)=
+Following DeepMD, the radial switching function is defined as
+\begin{equation}
+s(r) =
 \begin{cases}
-1, & r \le r_{\mathrm{sm}},\\[2pt]
-x^3(-6x^2+15x-10)+1, & r_{\mathrm{sm}}<r<r_c,\\[2pt]
+\dfrac{1}{r}, & r < r_s, \\[6pt]
+\dfrac{1}{r}\!\left[x^3(-6x^2 + 15x - 10) + 1\right], & r_s \le r < r_c, \\[10pt]
 0, & r \ge r_c,
 \end{cases}
 \qquad
-x = \frac{r-r_{\mathrm{sm}}}{r_c - r_{\mathrm{sm}}}.
-\]
+x = \dfrac{r - r_s}{r_c - r_s}.
+\end{equation}
 
-The resulting weight vector is
-\[
-w_k = f_{\mathrm{sw}}(r_{ij(k)}),
-\qquad
-w \in \mathbb{R}^{N_c^{\mathrm{(total)}}}.
-\]
+\subsubsection{Raw geometric matrix}
 
-Applying this weight yields the weighted geometric matrix
+DeepMD defines the geometric features of neighbour $j$ of atom $i$ as
+
+
+\begin{equation}
+    (R_i)_j =
+    \bigl[
+        s(r_{ij}),\;
+        s(r_{ij}) \dfrac{x_{ij}}{r_{ij}},\;
+        s(r_{ij}) \dfrac{y_{ij}}{r_{ij}},\;
+        s(r_{ij}) \dfrac{z_{ij}}{r_{ij}}
+    \bigr]
+    \in \mathbb R^{1 \times 4}.
+\end{equation}
+
+
+Collecting all neighbour rows yields the raw geometric matrix
 \[
-R^{\mathrm{w}}_{k,\alpha} = R^{\mathrm{raw}}_{k,\alpha} \, w_k ,
-\qquad
-R^{\mathrm{w}} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+R_i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
 \]
 
 \subsubsection{Species-aware neighbour ordering}
 
-DeepMD-v2 requires neighbours to be arranged according to:
-\begin{enumerate}
-    \item neighbour species,
-    \item increasing neighbour distance within each species,
-    \item a fixed per-species capacity determined by
-    \[
-        \texttt{sel} = [N_c^{(0)},\, N_c^{(1)},\dots ].
-    \]
-\end{enumerate}
-
-After this procedure, every central atom receives a geometric matrix with the same
-shape:
+Neighbours are arranged by species and padded to fixed per-species capacities
 \[
-R^{\mathrm{w}} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+\texttt{sel} = [N_c^{(0)}, N_c^{(1)}, \dots],
+\]
+yielding for every atom a geometric matrix of identical shape
+\[
+R_i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
 \]
 
-\subsubsection{Normalization of geometric features}
+\subsubsection{Feature normalization (this work)}
 
-DeepMD-v2 applies feature-wise normalization using tensors
+In the present implementation, the geometric matrix is further normalized using
+training-time statistics
 \[
-t_{\mathrm{avg}},\ t_{\mathrm{std}}
-\in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
+t_{\mathrm{avg}},\ t_{\mathrm{std}} \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
 \]
-
-The normalized geometric matrix is
-\[
-\hat{R}_{k,\alpha}
+The normalized matrix is defined as
+\begin{equation}
+\hat R_{k,\alpha}
 =
-\frac{
-    R^{\mathrm{w}}_{k,\alpha} - (t_{\mathrm{avg}})_{k,\alpha}
-}{
-    (t_{\mathrm{std}})_{k,\alpha}
-},
+\frac{R_{k,\alpha} - (t_{\mathrm{avg}})_{k,\alpha}}
+     {(t_{\mathrm{std}})_{k,\alpha}},
 \qquad
-\hat{R} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-\]
+\hat R \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
+\end{equation}
 
-The first column,
-\[
-\hat{s}_{ij} = \hat{R}_{ij,0},
-\]
-serves as the scalar input to the embedding network.
-
+The first column $\hat s_{ij} = \hat R_{ij,0}$ serves as the scalar input to the
+embedding network.
 \subsubsection{Summary}
 
-The constructed matrix
-\[
-\hat{R} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}
-\]
-is bitwise compatible with DeepMD-v2 and provides the geometric inputs for the next
-stage of the descriptor.
+The matrix $\hat R$ provides the complete geometric input for the subsequent
+descriptor construction stage and is fully compatible with the DeepMD-v2
+reference implementation.
 
 
-% ======================================================================
-\subsection{Construction of the Embedding Matrix \texorpdfstring{$G$}{G}}
+
+
+% % ======================================================================
+
+
+\subsection{Construction of the embedding matrix \texorpdfstring{$G$}{G}}
 \label{sec:G_matrix_construction}
 
 The second stage of the DeepPot-SE descriptor transforms each normalized inverse 
@@ -1202,7 +1428,7 @@ where $M$ is the embedding dimension , and
 $N_c^{\mathrm{(total)}} = \sum_b N_c^{(b)}$ is the total neighbour capacity specified by 
 the model’s \texttt{sel} vector.
 
-\subsubsection{Input and Output Dimensionality}
+\subsubsection{Input and output dimensionality}
 
 Each neighbour slot contributes a single scalar input
 \[
@@ -1226,8 +1452,10 @@ G_{iN_c^{(\mathrm{total})}}^{T}
 \end{bmatrix}
 \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M}.
 \]
-The ordering of the rows is identical to the ordering of the rows of $\hat{R}$:
-neighbours are grouped by species and sorted by distance within each species block.
+The ordering of the rows is identical to the ordering of the rows of $\hat{R}$: 
+neighbours are grouped by species and placed into fixed-capacity species blocks as prescribed by 
+sel
+sel.
 
 \subsubsection{Structure of the Filter Network}
 
@@ -1250,14 +1478,15 @@ For a filter network with layer widths
 1 \;\to\; H_1 \;\to\; H_2 \;\to\; \cdots \;\to\; H_{L} \;\to\; M,
 \]
 the forward pass is
-\[
-\begin{aligned}
-h^{(1)} &= \tanh\!\left(W^{(1)}_{a,b}\,\hat{s}_{ij} + b^{(1)}_{a,b}\right), \\
-h^{(\ell)} &= \tanh\!\left(W^{(\ell)}_{a,b}\,h^{(\ell-1)} + b^{(\ell)}_{a,b}\right),
-\qquad \ell = 2,\dots,L, \\
-G_{ij} &= W^{(L+1)}_{a,b}\,h^{(L)} + b^{(L+1)}_{a,b}.
-\end{aligned}
-\]
+\begin{equation}
+    \begin{aligned}
+    h^{(1)} &= \tanh\!\left(W^{(1)}_{a,b}\,\hat{s}_{ij} + b^{(1)}_{a,b}\right), \\
+    h^{(\ell)} &= \tanh\!\left(W^{(\ell)}_{a,b}\,h^{(\ell-1)} + b^{(\ell)}_{a,b}\right),
+    \qquad \ell = 2,\dots,L, \\
+    G_{ij} &= W^{(L+1)}_{a,b}\,h^{(L)} + b^{(L+1)}_{a,b}.
+    \end{aligned} 
+\end{equation}
+
 
 These weights $W^{(\ell)}_{a,b}$ and biases $b^{(\ell)}_{a,b}$ are extracted from the Frozen 
 Model under node names of the form  
@@ -1266,7 +1495,7 @@ Model under node names of the form
 The subscript $b$ corresponds to the neighbour species, confirming explicitly that 
 the network architecture depends on both the central and neighbour species.
 
-\subsubsection{Species\-Pair–Dependent Embedding Networks}
+\subsubsection{Species-pair dependent embedding networks}
 
 For a central atom of species $a$ and a neighbour of species $b$, the embedding is 
 computed using the matching filter network:
@@ -1332,11 +1561,11 @@ input to the species-dependent fitting network predicting the atomic energy \(E_
 DeepMD-v2 assigns neighbour capacity on a per-species basis.  
 Given species set \(\mathcal{S}\) and model parameters \(N_c^{(b)}\) for each species
 \(b\in\mathcal{S}\), the total neighbour capacity is
-\[
-N_c^{\mathrm{(total)}} =
-\sum_{b\in\mathcal{S}} N_c^{(b)} .
-\tag{4.1}
-\]
+\begin{equation}
+   N_c^{\mathrm{(total)}} =
+\sum_{b\in\mathcal{S}} N_c^{(b)} . 
+\end{equation}
+
 
 All matrices involved in descriptor computation are dimensioned using this total capacity.
 
@@ -1348,7 +1577,7 @@ constructed (Section~\ref{sec:env_construction}), the geometric features for ato
 assembled into the matrix
 \[
 \hat{R}_i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-\tag{4.2}
+% \tag{4.2}
 \]
 
 Each row corresponds to a specific neighbour slot and contains four quantities:
@@ -1359,18 +1588,18 @@ Each row corresponds to a specific neighbour slot and contains four quantities:
 \end{enumerate}
 
 Normalization follows the statistics extracted from the trained model:
-\[
-\hat{R}_{ij,\alpha} =
-\frac{R_{ij,\alpha} - (t_{\mathrm{avg}})_{\alpha}}
-     {(t_{\mathrm{std}})_{\alpha}},
-\qquad \alpha=0,\dots,3.
-\tag{4.3}
-\]
+\begin{equation}
+    \hat{R}_{ij,\alpha} =
+    \frac{R_{ij,\alpha} - (t_{\mathrm{avg}})_{\alpha}}
+        {(t_{\mathrm{std}})_{\alpha}},
+    \qquad \alpha=0,\dots,3.
+\end{equation}
+
 
 The first column is used as the scalar geometric input for the nonlinear embedding:
 \[
 \hat{s}_{ij} = \hat{R}_{ij,0}.
-\tag{4.4}
+% \tag{4.4}
 \]
 
 This matrix therefore represents a geometrically structured, normalized description of the
@@ -1385,22 +1614,22 @@ DeepMD-v2 assigns a distinct filter (embedding) network for every central–neig
 \((a,b)\), where \(a\) is the central species:
 \[
 G_{ij} = N_{\theta}^{(a,b(j))}(\hat{s}_{ij}),
-\tag{4.5}
+% \tag{4.5}
 \]
 with \(N_{\theta}^{(a,b)} : \mathbb{R} \to \mathbb{R}^{M}\).
 
 Evaluating all such networks yields
 \[
 G_i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M}.
-\tag{4.6}
+% \tag{4.6}
 \]
 
 Only the first \(M'\) embedding channels are required for the descriptor:
-\[
-G_i^{\mathrm{trunc}} = G_i[:,\, 1:M'] \in
-\mathbb{R}^{N_c^{\mathrm{(total)}} \times M'}.
-\tag{4.7}
-\]
+\begin{equation}
+    G_i^{\mathrm{trunc}} = G_i[:,\, 1:M'] \in
+    \mathbb{R}^{N_c^{\mathrm{(total)}} \times M'}.   
+\end{equation}
+
 
 This embedding stage transforms the purely geometric scalar inputs \(\hat{s}_{ij}\) into
 learned, species-dependent representations, with rows aligned exactly to the rows of
@@ -1411,15 +1640,16 @@ learned, species-dependent representations, with rows aligned exactly to the row
 
 The DeepPot-SE descriptor is obtained by combining the geometric and embedding matrices into
 a quadratic tensor:
-\[
-D_i
-=
-\frac{1}{(N_c^{\mathrm{(total)}})^2}
-\,
-\bigl(G_i^\mathsf{T}\hat{R}_i\bigr)
-\bigl(\hat{R}_i^\mathsf{T} G_i^{\mathrm{trunc}}\bigr).
-\tag{4.8}
-\]
+\begin{equation}
+    D_i
+    =
+    \frac{1}{(N_c^{\mathrm{(total)}})^2}
+    \,
+    \bigl(G_i^\mathsf{T}\hat{R}_i\bigr)
+    \bigl(\hat{R}_i^\mathsf{T} G_i^{\mathrm{trunc}}\bigr).
+\end{equation}
+
+
 
 The intermediate products have the following shapes:
 \[
@@ -1430,13 +1660,13 @@ G_i^\mathsf{T}\hat{R}_i
 &\in \mathbb{R}^{4 \times M'},\\[4pt]
 D_i &\in \mathbb{R}^{M \times M'}.
 \end{aligned}
-\tag{4.9}
+% \tag{4.9}
 \]
 
 DeepMD-v2 flattens this matrix in row-major order to obtain the final descriptor vector:
 \[
 \mathbf{D}_i \in \mathbb{R}^{M M'}.
-\tag{4.10}
+% \tag{4.10}
 \]
 
 This vector is the complete learned representation of the neighbourhood of atom \(i\),
@@ -1462,10 +1692,10 @@ This yields a complete, dimensionally consistent descriptor pipeline suitable fo
 high-performance DeepMD-v2 inference inside HALMD.
 
 
-\subsection{Potential Energy Calculation}
+\subsection{Potential energy calculation}
 \label{sec:potential_energy}
 
-In the Deep Potential (DeePot) formalism, the total potential energy of a system of
+In the deep potential formalism, the total potential energy of a system of
 \(N\) atoms is written as a sum of atomic contributions,
 \begin{equation}
     E = \sum_{i=1}^{N} E_i,
@@ -1483,7 +1713,7 @@ HALMD reconstructs these networks directly from the TensorFlow frozen graph
 residual branches, and output transformations.
 
 % ------------------------------------------------------------
-\subsubsection{Baseline Implementation Prior to This Work}
+\subsubsection{Baseline implementation prior to this Work}
 
 The earlier HALMD implementation \cite{cruz2025deepmd} supported inference only for
 \emph{single-species} DeepMD models.  
@@ -1499,7 +1729,7 @@ components required for DeepMD-v2 multi-species inference:
 Therefore, multi-component DeepMD-v2 models could not be evaluated within HALMD.
 
 % ------------------------------------------------------------
-\subsubsection{Species-Dependent Fitting Networks}
+\subsubsection{Species-dependent fitting networks}
 
 DeepMD-v2 defines a separate fitting neural network for each atomic species.
 In the TensorFlow graph, these networks appear under node groups of the form:
@@ -1539,7 +1769,7 @@ The names of the corresponding TensorFlow nodes make the species mapping explici
 These node groups fully specify all weights and biases of each species-dependent fitting network.
 
 % ------------------------------------------------------------
-\subsubsection{Per-Species Energy Offsets}
+\subsubsection{Per-species energy offsets}
 
 DeepMD-v2 optionally includes constant energy offsets for each species, stored under:
 \[
@@ -1552,7 +1782,7 @@ HALMD extracts these tensors and evaluates
 This ensures that the final energy scale matches the one used during DeepMD model training.
 
 % ------------------------------------------------------------
-\subsubsection{Integration with the Multi-Species Descriptor Pipeline}
+\subsubsection{Integration with the multi-Species descriptor pipeline}
 
 The descriptor vector \(\mathbf{D}_i\) supplied to the fitting network has the exact structure
 expected by the DeepMD-v2 TensorFlow implementation.  
@@ -1576,7 +1806,7 @@ the fitting networks defined in
 The revised HALMD implementation enforces this consistency.
 
 % ------------------------------------------------------------
-\subsubsection{Reproduction of DeepMD-v2 Energies}
+\subsubsection{Reproduction of DeepMD-v2 energies}
 
 With the full multi-species pipeline integrated, HALMD reproduces DeepMD-v2 energy predictions
 to floating-point precision across all tested systems:
@@ -1590,7 +1820,7 @@ to floating-point precision across all tested systems:
 Both total energies and per-atom energies match DeepMD’s TensorFlow-based outputs.
 
 % ------------------------------------------------------------
-\subsubsection{Final Formulation}
+\subsubsection{Final formulation}
 
 HALMD now evaluates the energy of each atom using the DeepMD-v2 expression
 \begin{equation}
@@ -1604,11 +1834,11 @@ and accumulates the total energy as
 This formulation is bitwise compatible with the DeepMD-v2 computational graph and is suitable
 for high-performance molecular dynamics simulations of multi-species systems within HALMD.
 
-
-\section{Force Computation}
+\newpage
+\section{Force computation}
 \label{sec:forces}
 
-In the Deep Potential (DeeP) framework, forces are obtained as the negative 
+In the deep potential framework, forces are obtained as the negative 
 gradient of the total potential energy with respect to atomic coordinates,
 \[
     \mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.
@@ -1757,16 +1987,17 @@ using only the multivariate chain rule.
 \subsubsection{Step 1: Rewrite the Components of \texorpdfstring{$R$}{R}}
 
 For neighbour \(j\), the geometry row is
-\[
-R_{ij}
+\begin{equation}
+   R_{ij}
 =
 \bigl[
     \tilde{s}_{ij},\;
     \tilde{s}_{ij}\tfrac{d_x}{r_{ij}},\;
     \tilde{s}_{ij}\tfrac{d_y}{r_{ij}},\;
     \tilde{s}_{ij}\tfrac{d_z}{r_{ij}}
-\bigr].
-\]
+\bigr]. 
+\end{equation}
+
 We denote the three directional components compactly as
 \[
 S_\alpha
@@ -1818,30 +2049,34 @@ and combining these yields
 \subsubsection{Step 3: Derivative of the Switching Function}
 
 The switching function used in DeepMD is
-\[
-f_{\mathrm{sw}}(r)=
-\begin{cases}
-1, & r \le r_{\mathrm{sm}},\\[4pt]
-x^{3}(-6x^{2} + 15x - 10)+1, & r_{\mathrm{sm}} < r < r_c,\\[4pt]
-0, & r \ge r_c,
-\end{cases}
-\qquad
-x = \dfrac{r - r_{\mathrm{sm}}}{r_c - r_{\mathrm{sm}}}.
-\]
+
+\begin{equation}
+    f_{\mathrm{sw}}(r)=
+    \begin{cases}
+    1, & r \le r_{\mathrm{sm}},\\[4pt]
+    x^{3}(-6x^{2} + 15x - 10)+1, & r_{\mathrm{sm}} < r < r_c,\\[4pt]
+    0, & r \ge r_c,
+    \end{cases}
+    \qquad
+    x = \dfrac{r - r_{\mathrm{sm}}}{r_c - r_{\mathrm{sm}}}.
+\end{equation}
+
 
 Its derivative with respect to the distance \(r\) is obtained using the chain rule,
-\[
-\frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}r}
-=
-\begin{cases}
-0, & r \le r_{\mathrm{sm}},\\[6pt]
-\dfrac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}x}
-\cdot
-\dfrac{1}{\,r_c - r_{\mathrm{sm}}\,},
-& r_{\mathrm{sm}} < r < r_c,\\[10pt]
-0, & r \ge r_c,
-\end{cases}
-\]
+\begin{equation}
+    \frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}r}
+    =
+    \begin{cases}
+    0, & r \le r_{\mathrm{sm}},\\[6pt]
+    \dfrac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}x}
+    \cdot
+    \dfrac{1}{\,r_c - r_{\mathrm{sm}}\,},
+    & r_{\mathrm{sm}} < r < r_c,\\[10pt]
+    0, & r \ge r_c,
+    \end{cases}
+\end{equation}
+
+
 where
 \[
 \frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}x}
@@ -1852,14 +2087,15 @@ x^{2}\left( -30x^{2} + 60x - 30 \right).
 This expression enters the derivative of the switched inverse distance
 \(\tilde{s}_{ij} = r_{ij}^{-1} f_{\mathrm{sw}}(r_{ij})\),
 via
-\[
-\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
-=
--\,\frac{1}{r_{ij}^{2}} f_{\mathrm{sw}}(r_{ij})
-+
-\frac{1}{r_{ij}}
-\frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}r}(r_{ij}),
-\]
+\begin{equation}
+    \frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
+    =
+    -\,\frac{1}{r_{ij}^{2}} f_{\mathrm{sw}}(r_{ij})
+    +
+    \frac{1}{r_{ij}}
+    \frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}r}(r_{ij}),   
+\end{equation}
+
 which is subsequently used in the derivatives of all components of the
 geometry matrix \(R\).
 
@@ -1900,7 +2136,8 @@ S_\alpha
 \tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}}.
 \]
 We differentiate it with respect to \(\mathbf{r}_i\) using the product rule.
-First differentiate with respect to distance:
+First differentiate with respect to distance
+
 \[
 \frac{\partial}{\partial r_{ij}}
 \left(\frac{d_\alpha}{r_{ij}}\right)
@@ -1910,14 +2147,15 @@ d_\alpha\left(-\frac{1}{r_{ij}^{2}}\right)
 -\,\frac{d_\alpha}{r_{ij}^{2}}.
 \]
 Then
-\[
-\frac{\partial S_\alpha}{\partial r_{ij}}
-=
-\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
-\frac{d_\alpha}{r_{ij}}
--
-\tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}^{2}}.
-\]
+\begin{equation}
+    \frac{\partial S_\alpha}{\partial r_{ij}}
+    =
+    \frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
+    \frac{d_\alpha}{r_{ij}}
+    -
+    \tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}^{2}}.  
+\end{equation}
+
 
 Next we differentiate \(S_\alpha\) with respect to the displacement component
 \(d_\alpha\):
@@ -1939,20 +2177,21 @@ chain rule gives
 \]
 
 Substituting all expressions:
-\[
-\frac{\partial S_\alpha}{\partial \mathbf{r}_i}
-=
--
-\left(
-\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
-\frac{d_\alpha}{r_{ij}}
--
-\tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}^{2}}
-\right)
-\hat{\mathbf{r}}_{ij}
--
-\frac{\tilde{s}_{ij}}{r_{ij}}\,\mathbf{e}_\alpha.
-\]
+\begin{equation}
+    \frac{\partial S_\alpha}{\partial \mathbf{r}_i}
+    =
+    -
+    \left(
+    \frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
+    \frac{d_\alpha}{r_{ij}}
+    -
+    \tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}^{2}}
+    \right)
+    \hat{\mathbf{r}}_{ij}
+    -
+    \frac{\tilde{s}_{ij}}{r_{ij}}\,\mathbf{e}_\alpha.
+\end{equation}
+
 
 This formula directly produces the derivative of
 \(R_{ij,1}, R_{ij,2}, R_{ij,3}\).
@@ -1971,12 +2210,13 @@ DeepMD-v2 uses component-wise normalization:
 }.
 \]
 Since the normalization parameters are constants,
-\[
-\frac{\partial \hat{R}_{ij,\alpha}}{\partial \mathbf{r}_i}
-=
-\frac{1}{(t_{\mathrm{std}})_\alpha}
-\frac{\partial R_{ij,\alpha}}{\partial \mathbf{r}_i},
-\]
+\begin{equation}
+   \frac{\partial \hat{R}_{ij,\alpha}}{\partial \mathbf{r}_i}
+    =
+    \frac{1}{(t_{\mathrm{std}})_\alpha}
+    \frac{\partial R_{ij,\alpha}}{\partial \mathbf{r}_i}, 
+\end{equation}
+
 
 
 \subsubsection{Step 7: Derivative with Respect to the Neighbour Coordinate \texorpdfstring{$\mathbf{r}_j$}{rj}}
@@ -2000,26 +2240,27 @@ which implies
 \]
 
 Using the chain rule for the distance \(r_{ij}\),
-\[
-\frac{\partial r_{ij}}{\partial \mathbf{r}_j}
-=
-\sum_\alpha
-\frac{\partial r_{ij}}{\partial d_\alpha}
-\frac{\partial d_\alpha}{\partial \mathbf{r}_j}
-=
-\sum_\alpha
-\frac{d_\alpha}{r_{ij}}\,\mathbf{e}_\alpha
-=
-+\,\hat{\mathbf{r}}_{ij},
-\]
+\begin{equation}
+    \frac{\partial r_{ij}}{\partial \mathbf{r}_j}
+    =
+    \sum_\alpha
+    \frac{\partial r_{ij}}{\partial d_\alpha}
+    \frac{\partial d_\alpha}{\partial \mathbf{r}_j}
+    =
+    \sum_\alpha
+    \frac{d_\alpha}{r_{ij}}\,\mathbf{e}_\alpha
+    =
+    +\,\hat{\mathbf{r}}_{ij},
+\end{equation}
+
 which is exactly the opposite of the central-atom derivative
 \(\partial r_{ij}/\partial \mathbf{r}_i = -\hat{\mathbf{r}}_{ij}\).
 
 \vspace{1em}
 
-\noindent\textbf{As a consequence, every derivative with respect to}
+\noindent\textit{As a consequence, every derivative with respect to}
 \(\mathbf{r}_j\)
-\textbf{is simply the negative of the corresponding derivative with respect to}
+\textit{is simply the negative of the corresponding derivative with respect to}
 \(\mathbf{r}_i\):
 \[
 \frac{\partial R_{ij,\alpha}}{\partial \mathbf{r}_j}
@@ -2066,23 +2307,25 @@ foundation of the quadratic descriptor used in DeepMD.
 \medskip
 
 The full (extended) descriptor is defined as the scaled Gram matrix
-\[
-D_{\mathrm{ext}}
-=
-\frac{1}{N_c^2}\, C C^{\mathsf T}
-\qquad
-D_{\mathrm{ext}} \in \mathbb{R}^{M \times M}.
-\]
+\begin{equation}
+    D_{\mathrm{ext}}
+    =
+    \frac{1}{N_c^2}\, C C^{\mathsf T}
+    \qquad
+    D_{\mathrm{ext}} \in \mathbb{R}^{M \times M}. 
+\end{equation}
+
 This construction ensures permutation invariance of neighbours and couples all
 embedding channels quadratically.
 
 However, the actual DeepPot-SE descriptor used by the fitting network consists
 only of the first \(M'\) columns of \(D_{\mathrm{ext}}\):
-\[
-D = D_{\mathrm{ext}}[:,\,1\!:\!M'], 
-\qquad
-D \in \mathbb{R}^{M \times M'}.
-\]
+\begin{equation}
+    D = D_{\mathrm{ext}}[:,\,1\!:\!M'], 
+    \qquad
+    D \in \mathbb{R}^{M \times M'}.
+\end{equation}
+
 Thus, the descriptor truncation is implemented by a simple column restriction.
 
 \subsubsection*{Derivative with respect to the intermediate matrix \(C\)}
@@ -2100,17 +2343,18 @@ gradient, scaled by the normalization factor \(N_c^{-2}\).
 Since the final descriptor \(D\) keeps only the first \(M'\) columns of
 \(D_{\mathrm{ext}}\), the derivative of \(D\) with respect to \(C\) is obtained by
 restricting the above gradient to these columns:
-\[
-\frac{\partial D}{\partial C}
-=
-\left(
-\frac{\partial D_{\mathrm{ext}}}{\partial C}
-\right)[:,\,1\!:\!M']
-=
-\left(
-\frac{2}{N_c^2}\, C
-\right)[:,\,1\!:\!M'].
-\]
+\begin{equation}
+   \frac{\partial D}{\partial C}
+    =
+    \left(
+    \frac{\partial D_{\mathrm{ext}}}{\partial C}
+    \right)[:,\,1\!:\!M']
+    =
+    \left(
+    \frac{2}{N_c^2}\, C
+    \right)[:,\,1\!:\!M']. 
+\end{equation}
+
 
 \subsubsection*{Derivative with respect to the normalized geometric matrix}
 
@@ -2128,20 +2372,21 @@ G^{\mathsf T}.
 
 Applying the chain rule yields the descriptor derivative with respect to the
 normalized geometry:
-\[
-\boxed{
-\frac{\partial D}{\partial \hat{R}}
-=
-\frac{\partial D}{\partial C}
-\,
-\frac{\partial C}{\partial \hat{R}}
-=
-\left(
-\frac{2}{N_c^2}\, C
-\right)[:,\,1\!:\!M']
-G^{\mathsf T}.
-}
-\]
+\begin{equation}
+    \boxed{
+    \frac{\partial D}{\partial \hat{R}}
+    =
+    \frac{\partial D}{\partial C}
+    \,
+    \frac{\partial C}{\partial \hat{R}}
+    =
+    \left(
+    \frac{2}{N_c^2}\, C
+    \right)[:,\,1\!:\!M']
+    G^{\mathsf T}.
+    }
+\end{equation}
+
 
 This expression plays a central role in the force derivation, as it couples the
 geometric derivatives of \(\hat{R}\) (Section~\ref{sec:R_derivative})
@@ -2233,17 +2478,17 @@ $\alpha$:
 \end{enumerate}
 
 Repeating this procedure for $\alpha = 1,\dotsc,M'$ yields the full gradient
-\[
-\boxed{
-\nabla_{\mathbf{D}_i} E_i
-=
-\left(
-\frac{\partial E_i}{\partial D_{i,1}},
-\ldots,
-\frac{\partial E_i}{\partial D_{i,M'}}
-\right)
-}
-\]
+\begin{equation}
+    \boxed{
+    \nabla_{\mathbf{D}_i} E_i
+    =
+    \left(
+    \frac{\partial E_i}{\partial D_{i,1}},
+    \ldots,
+    \frac{\partial E_i}{\partial D_{i,M'}}
+    \right)
+    }
+\end{equation}
 which HALMD stores as the Jacobian row associated with atom~$i$.
 
 From an algorithmic point of view, this is equivalent to computing one
@@ -2270,26 +2515,28 @@ bitwise agreement with DeepMD--v2 energies and forces for all tested models.
 
 
 
-\subsection{Final Force Assembly}
+\subsection{Final Force assembly}
 \label{sec:final_force_assembly}
 
 We now combine all derivative components derived in the preceding sections to obtain
 the explicit DeepMD--v2 force expression.  
 The total potential energy is
+
 \[
 E = \sum_{i} E_i(D_i),
 \]
 so the force on atom $k$ follows from
-\[
-\mathbf{F}_k
-=
--\,\frac{\partial E}{\partial \mathbf{r}_k}
-=
--\,\sum_{i}
-\frac{\partial E_i}{\partial D_i}
-\frac{\partial D_i}{\partial \mathbf{r}_k}.
-\tag{4.1}
-\]
+
+\begin{equation}
+    \mathbf{F}_k
+    =
+    -\,\frac{\partial E}{\partial \mathbf{r}_k}
+    =
+    -\,\sum_{i}
+    \frac{\partial E_i}{\partial D_i}
+    \frac{\partial D_i}{\partial \mathbf{r}_k}.
+\end{equation}
+
 
 This expression backpropagates the fitting-network derivative through the descriptor
 construction pathway
@@ -2325,23 +2572,23 @@ This vector forms the final gradient that propagates backward through the descri
 \subsubsection{Contribution from the descriptor}
 
 From Section~\ref{sec:descriptor_derivative}, the descriptor derivative is
-\[
-\boxed{
-\frac{\partial D_i}{\partial \mathbf{r}_k}
-=
-\biggl[
-\frac{\partial D_i}{\partial \hat{R}_i}
-\;+\;
-\frac{\partial D_i}{\partial G_i}
-\,
-\frac{\partial G_i}{\partial \hat{s}_i}
-\,
-\frac{\partial \hat{s}_i}{\partial \hat{R}_i}
-\biggr]
-\frac{\partial \hat{R}_i}{\partial \mathbf{r}_k}
-}
-\tag{4.2}
-\]
+\begin{equation}
+    \boxed{
+    \frac{\partial D_i}{\partial \mathbf{r}_k}
+    =
+    \biggl[
+    \frac{\partial D_i}{\partial \hat{R}_i}
+    \;+\;
+    \frac{\partial D_i}{\partial G_i}
+    \,
+    \frac{\partial G_i}{\partial \hat{s}_i}
+    \,
+    \frac{\partial \hat{s}_i}{\partial \hat{R}_i}
+    \biggr]
+    \frac{\partial \hat{R}_i}{\partial \mathbf{r}_k}
+    }
+\end{equation}
+
 where
 \begin{itemize}
     \item $\hat{s}_i$ denotes the vector of normalized inverse distances (first column of $\hat{R}_i$),
@@ -2374,39 +2621,40 @@ This tensor provides the geometric part of the chain rule.
 \subsubsection{Final force expression}
 
 Substituting Eq.~(4.2) into Eq.~(4.1) gives the complete DeepMD--v2 force:
-\[
-\boxed{
-\mathbf{F}_k
-=
--
-\sum_i
-\left( \frac{\partial E_i}{\partial D_i} \right)
-\biggl[
-\frac{\partial D_i}{\partial \hat{R}_i}
-+
-\frac{\partial D_i}{\partial G_i}
-\,
-\frac{\partial G_i}{\partial \hat{s}_i}
-\,
-\frac{\partial \hat{s}_i}{\partial \hat{R}_i}
-\biggr]
-\frac{\partial \hat{R}_i}{\partial \mathbf{r}_k}
-}
-\tag{4.3}
-\]
+    \begin{equation}
+    \boxed{
+    \mathbf{F}_k
+    =
+    -
+    \sum_i
+    \left( \frac{\partial E_i}{\partial D_i} \right)
+    \biggl[
+    \frac{\partial D_i}{\partial \hat{R}_i}
+    +
+    \frac{\partial D_i}{\partial G_i}
+    \,
+    \frac{\partial G_i}{\partial \hat{s}_i}
+    \,
+    \frac{\partial \hat{s}_i}{\partial \hat{R}_i}
+    \biggr]
+    \frac{\partial \hat{R}_i}{\partial \mathbf{r}_k}
+    }
+\end{equation}
+
+
 
 
 This final expression cleanly separates all contributions:
 \begin{itemize}
-    \item the \textbf{fitting-network derivative}
+    \item the \textit{fitting-network derivative}
           $\partial E_i / \partial D_i$
           (forward-mode AD),
-    \item the \textbf{descriptor-level derivatives}
+    \item the \textit{descriptor-level derivatives}
           $\partial D_i / \partial \hat{R}_i$ and $\partial D_i / \partial G_i$,
-    \item the \textbf{embedding-network sensitivity to geometry}
+    \item the \textit{embedding-network sensitivity to geometry}
           $\partial G_i / \partial \hat{s}_i$,
-    \item the \textbf{projection} $\partial \hat{s}_i / \partial \hat{R}_i$,
-    \item the \textbf{analytic geometric derivatives}
+    \item the \textit{projection} $\partial \hat{s}_i / \partial \hat{R}_i$,
+    \item the \textit{analytic geometric derivatives}
           $\partial \hat{R}_i / \partial \mathbf{r}_k$.
 \end{itemize}
 
@@ -2417,7 +2665,7 @@ neural components.
 
 
 
-
+\newpage
 \section{Results}
 \label{sec:results}
 
@@ -2445,7 +2693,7 @@ The tests were conducted using several trained DeepMD-v2 models:
 
 
 % ===========================================================
-\subsection{Energy Agreement Between DeepMD and HALMD}
+\subsection{Energy agreement between DeepMD and HALMD}
 
 A key requirement for correctness is the reproduction of per-atom and total
 energies predicted by DeepMD.
@@ -2465,7 +2713,7 @@ Tables~\ref{tab:energy-cu}--\ref{tab:energy-garnet} illustrate this agreement
 for several trained models.
 
 % -----------------------------------------------------------
-\subsubsection*{Monoatomic Copper Model (Model A)\cite{Cu_fcc_slabs_2023}}
+\subsubsection*{Monoatomic Copper model (model A)\cite{Cu_fcc_slabs_2023}}
 
 \begin{table}[H]
 \centering
@@ -2490,7 +2738,7 @@ remaining differences attributable to rounding.
 
 % -----------------------------------------------------------
 
-\subsubsection*{High-Entropy Alloy (HEA) Model \cite{deepmdkit_v2_data}}
+\subsubsection*{High-entropy alloy (HEA) model \cite{deepmdkit_v2_data}}
 
 \begin{table}[H]
 \centering
@@ -2514,7 +2762,7 @@ all tested system sizes.
 
 % -----------------------------------------------------------
 
-\subsubsection*{Garnet Model \cite{zhong2025hydrogen}}
+\subsubsection*{Garnet model \cite{zhong2025hydrogen}}
 
 \begin{table}[H]
 \centering
@@ -2526,7 +2774,7 @@ accuracy.}
 \hline
 Atoms & Species & DeepMD Energy (eV) & HALMD Energy (eV) \\
 \hline
-161  & 5 & $-108444.87438528$   & $-108445$   \\
+161  & 5 & $-108445$   & $-108445$   \\
 % XXX  & X & $-XXXXXXXX.XXXXX$ & $-XXXXXXXX.XXXXX$ \\
 % XXXX & X & $-XXXXXXXXX.XXXXX$ & $-XXXXXXXXX.XXXXX$ \\
 \hline
@@ -2538,7 +2786,7 @@ neural-network forward pass for a chemically complex multi-species system.
 
 % -----------------------------------------------------------
 
-\subsubsection*{Second Copper Model (Model B)\cite{deepmdkit_v2_data}}
+\subsubsection*{Second Copper model (model B)\cite{deepmdkit_v2_data}}
 
 \begin{table}[H]
 \centering
@@ -2563,16 +2811,16 @@ with different training statistics, including variations in
 
 
 
-\subsection{Force Comparison and Remaining Discrepancy}
+\subsection{Force comparison and remaining discrepancy}
 
 
-\subsection{GPU Profiling and Performance Analysis}
+\subsection{GPU profiling and performance analysis}
 \label{sec:gpu_profiling_results}
 
 To better understand the computational behaviour of DeepMD-v2, detailed GPU
 profiling was performed using NVIDIA Nsight Systems and Nsight Compute.  
 All measurements reported in this section correspond specifically to the
-\textbf{second copper model \cite{deepmdkit_v2_data}}, evaluated on a representative atomic configuration.
+\textit{second copper model \cite{deepmdkit_v2_data}}, evaluated on a representative atomic configuration.
 The goal of this analysis is to quantify the computational cost of the
 individual stages of the DeepMD pipeline and to identify performance
 bottlenecks relevant for future optimisation.
@@ -2730,7 +2978,7 @@ force compatibility in HALMD.
 % Lessons learned integrating ML potentials into MD engines.
 
 % ===============================
-\section{Conclusions and Future Work}
+\section{Conclusions and future Work}
 % Summary of contributions.  
 % Limitations and optimization possibilities.  
 % Future extensions (multi-species descriptor, GPU parallelization, hybrid QM/ML MD).
