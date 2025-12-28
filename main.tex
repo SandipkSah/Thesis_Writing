@@ -1825,6 +1825,8 @@ This formulation is bitwise compatible with the DeepMD-v2 computational graph an
 for high-performance molecular dynamics simulations of multi-species systems within HALMD.
 
 \newpage
+
+
 \section{Force computation}
 \label{sec:forces}
 
@@ -1961,10 +1963,12 @@ matrix \(R\) with respect to the coordinates of the central atom \(i\).
 Each row depends on the neighbour displacement defined in
 Eq.~\eqref{eq:relative_disp}; we write
 \(\mathbf{r}_{ij} = (d_x, d_y, d_z)\) and \(r_{ij} = \lVert \mathbf{r}_{ij} \rVert\),
-and on the switched inverse distance
+and on the radial function
 \[
-\tilde{s}_{ij} = \frac{1}{r_{ij}}\, f_{\mathrm{sw}}(r_{ij}).
+s(r_{ij})
 \]
+defined in Section~\ref{sec:R_matrix_construction}.
+
 We now derive all components of \(\partial R_{ij} / \partial \mathbf{r}_i\)
 using only the multivariate chain rule.
 
@@ -2022,160 +2026,88 @@ and combining these yields
 
 % -------------------------------------------------------
 
-\subsubsection{Step 3: Derivative of the Switching Function}
+% \subsubsection{Step 3: Derivative of the Switching Function}
 
-The switching function used in DeepMD is
-
-\begin{equation}\label{eq:deepmd_switch}
-    f_{\mathrm{sw}}(r)=
-    \begin{cases}
-    1, & r \le r_{\mathrm{sm}},\\[4pt]
-    x^{3}(-6x^{2} + 15x - 10)+1, & r_{\mathrm{sm}} < r < r_c,\\[4pt]
-    0, & r \ge r_c,
-    \end{cases}
-    \qquad
-    x = \dfrac{r - r_{\mathrm{sm}}}{r_c - r_{\mathrm{sm}}}.
-\end{equation}
-
-
-Its derivative with respect to the distance \(r\) is obtained using the chain rule,
+From Section~\ref{sec:R_matrix_construction}, the radial switching function is
 \begin{equation}
-    \frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}r}
-    =
-    \begin{cases}
-    0, & r \le r_{\mathrm{sm}},\\[6pt]
-    \dfrac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}x}
-    \cdot
-    \dfrac{1}{\,r_c - r_{\mathrm{sm}}\,},
-    & r_{\mathrm{sm}} < r < r_c,\\[10pt]
-    0, & r \ge r_c,
-    \end{cases}
+s(r) =
+\begin{cases}
+\dfrac{1}{r}, & r < r_s, \\[6pt]
+\dfrac{1}{r}\!\left[x^3(-6x^2 + 15x - 10) + 1\right], & r_s \le r < r_c, \\[10pt]
+0, & r \ge r_c,
+\end{cases}
+\qquad
+x = \dfrac{r - r_s}{r_c - r_s}.
 \end{equation}
 
-
-where
+For \(r_s \le r < r_c\), define
 \[
-\frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}x}
-=
-x^{2}\left( -30x^{2} + 60x - 30 \right).
+P(x) = x^3(-6x^2 + 15x - 10) + 1.
+\]
+Then
+\[
+\frac{dP}{dx} = x^2(-30x^2 + 60x - 30),
+\qquad
+\frac{dx}{dr} = \frac{1}{r_c - r_s}.
 \]
 
-This expression enters the derivative of the switched inverse distance
-\(\tilde{s}_{ij} = r_{ij}^{-1} f_{\mathrm{sw}}(r_{ij})\),
-via
+The derivative of \(s(r)\) is therefore
 \begin{equation}
-    \frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
-    =
-    -\,\frac{1}{r_{ij}^{2}} f_{\mathrm{sw}}(r_{ij})
-    +
-    \frac{1}{r_{ij}}
-    \frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}r}(r_{ij}),   
+\frac{ds}{dr} =
+\begin{cases}
+-\dfrac{1}{r^2}, & r < r_s, \\[10pt]
+-\dfrac{1}{r^2}P(x) + \dfrac{1}{r}\dfrac{dP}{dx}\dfrac{1}{r_c - r_s},
+& r_s \le r < r_c, \\[12pt]
+0, & r \ge r_c.
+\end{cases}
 \end{equation}
 
-which is subsequently used in the derivatives of all components of the
-geometry matrix \(R\).
 
-
-\subsubsection{Step 4: Derivative of the Switched Inverse Distance}
+\subsubsection{Step 4: Derivative of the Radial Component}
 
 The first component of the geometry row is
 \[
-R_{ij,0} = \tilde{s}_{ij}
-= \frac{1}{r_{ij}} f_{\mathrm{sw}}(r_{ij}).
+R_{ij,0} = s(r_{ij}).
 \]
-Differentiating with respect to \(r_{ij}\),
+Applying the chain rule,
 \[
-\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
+\frac{\partial R_{ij,0}}{\partial \mathbf r_i}
 =
--\,\frac{1}{r_{ij}^{2}} f_{\mathrm{sw}}(r_{ij})
-+
-\frac{1}{r_{ij}}\, \frac{\mathrm{d}f_{\mathrm{sw}}}{\mathrm{d}r}(r_{ij}).
-\]
-Applying the chain rule with
-\(\partial r_{ij}/\partial \mathbf{r}_i = -\,\hat{\mathbf{r}}_{ij}\),
-\[
-\frac{\partial R_{ij,0}}{\partial \mathbf{r}_i}
+\frac{ds}{dr}(r_{ij})
+\frac{\partial r_{ij}}{\partial \mathbf r_i}
 =
-\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
-\frac{\partial r_{ij}}{\partial \mathbf{r}_i}
-=
--\,\frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}\,\hat{\mathbf{r}}_{ij}.
+-\,\frac{ds}{dr}(r_{ij})\,\hat{\mathbf r}_{ij}.
 \]
 
-% -------------------------------------------------------
+
 \subsubsection{Step 5: Derivative of the Directional Components}
 
-Consider a single directional term
+Each directional component is
 \[
-S_\alpha
-=
-\tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}}.
-\]
-We differentiate it with respect to \(\mathbf{r}_i\) using the product rule.
-First differentiate with respect to distance
-
-\[
-\frac{\partial}{\partial r_{ij}}
-\left(\frac{d_\alpha}{r_{ij}}\right)
-=
-d_\alpha\left(-\frac{1}{r_{ij}^{2}}\right)
-=
--\,\frac{d_\alpha}{r_{ij}^{2}}.
-\]
-Then
-\begin{equation}
-    \frac{\partial S_\alpha}{\partial r_{ij}}
-    =
-    \frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
-    \frac{d_\alpha}{r_{ij}}
-    -
-    \tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}^{2}}.  
-\end{equation}
-
-
-Next we differentiate \(S_\alpha\) with respect to the displacement component
-\(d_\alpha\):
-\[
-\frac{\partial S_\alpha}{\partial d_\alpha}
-=
-\tilde{s}_{ij}\,\frac{1}{r_{ij}}.
-\]
-Using \(\partial d_\alpha / \partial \mathbf{r}_i = -\,\mathbf{e}_\alpha\), the
-chain rule gives
-\[
-\frac{\partial S_\alpha}{\partial \mathbf{r}_i}
-=
-\frac{\partial S_\alpha}{\partial r_{ij}}
-\frac{\partial r_{ij}}{\partial \mathbf{r}_i}
-+
-\frac{\partial S_\alpha}{\partial d_\alpha}
-\frac{\partial d_\alpha}{\partial \mathbf{r}_i}.
+R_{ij,\alpha} = s(r_{ij})\,\frac{d_\alpha}{r_{ij}},
+\qquad \alpha \in \{x,y,z\}.
 \]
 
-Substituting all expressions:
-\begin{equation}
-    \frac{\partial S_\alpha}{\partial \mathbf{r}_i}
-    =
-    -
-    \left(
-    \frac{\partial \tilde{s}_{ij}}{\partial r_{ij}}
-    \frac{d_\alpha}{r_{ij}}
-    -
-    \tilde{s}_{ij}\,\frac{d_\alpha}{r_{ij}^{2}}
-    \right)
-    \hat{\mathbf{r}}_{ij}
-    -
-    \frac{\tilde{s}_{ij}}{r_{ij}}\,\mathbf{e}_\alpha.
-\end{equation}
+Using the product rule and the results of the previous steps,
+\[
+\frac{\partial R_{ij,\alpha}}{\partial \mathbf r_i}
+=
+-\,\frac{ds}{dr}(r_{ij})\frac{d_\alpha}{r_{ij}}\,\hat{\mathbf r}_{ij}
+- s(r_{ij})\,\frac{1}{r_{ij}}\mathbf e_\alpha
++ s(r_{ij})\,\frac{d_\alpha}{r_{ij}^2}\,\hat{\mathbf r}_{ij}.
+\]
 
-
-This formula directly produces the derivative of
+This formula provides the complete derivative of the directional components
 \(R_{ij,1}, R_{ij,2}, R_{ij,3}\).
 
-% -------------------------------------------------------
-\subsubsection{Step 6: Normalized Geometry Derivative}
 
-DeepMD-v2 uses component-wise normalization:
+
+\subsubsection{Step 6: Normalized Geometry Derivative}
+Note that the raw radial feature $s(r_{ij}) = R_{ij,0}$ becomes the normalized
+quantity $\hat s_{ij} := \hat R_{ij,0}$ after feature normalization, and it is
+this normalized scalar $\hat s_{ij}$ that is used as the input to the embedding
+network.
+
 \[
 \hat{R}_{ij,\alpha}
 =
@@ -2265,6 +2197,59 @@ Thus, once the derivative with respect to the central atom is known, the
 neighbour-atom derivative requires no further computation.
 
 
+\subsection{Derivative of the Embedding Matrix}
+\label{sec:G_derivative}
+
+In DeepPot--SE, each row of the embedding matrix
+\[
+G \in \mathbb{R}^{N_c \times M}
+\]
+is produced by an embedding neural network that depends on the local geometry
+only through the scalar input
+\[
+\hat s_{ij} := \hat R_{ij,0},
+\]
+the first component of the normalized geometric matrix.
+Hence, for each neighbour \(j\),
+\[
+G_{j:} = \mathrm{N}^{(a,b)}_{\theta}(\hat s_{ij}).
+\]
+
+The derivative of \(G\) with respect to the geometry therefore reduces to the
+one–dimensional derivative of the embedding network with respect to its scalar
+input:
+\begin{equation}
+\boxed{
+\frac{\partial G_{jp}}{\partial \hat R_{ij,0}}
+=
+\frac{d\,\mathrm{N}^{(a,b)}_\theta{}}{d \hat s}\bigl(\hat s_{ij}\bigr),
+\qquad
+p = 1,\dots,M.
+}
+\end{equation}
+
+% N^{(a,b)}_{\theta}
+
+All other components of \(\hat R\) do not influence \(G\):
+\[
+\frac{\partial G_{jp}}{\partial \hat R_{j\alpha}} = 0,
+\alpha \neq 0.
+\]
+
+The vector
+\[
+\mathbf q_j :=
+\left(
+\frac{\partial G_{j1}}{\partial \hat R_{ij,0}},
+\ldots,
+\frac{\partial G_{jM}}{\partial \hat R_{ij,0}}
+\right)
+\in \mathbb{R}^M
+\]
+is obtained by automatic differentiation of the embedding network and is treated
+as a known quantity in the subsequent descriptor and force derivations.
+
+
 \subsection{Descriptor Derivative}
 \label{sec:descriptor_derivative}
 
@@ -2273,7 +2258,7 @@ embedding matrix \(G \in \mathbb{R}^{N_c \times M}\) and the normalized geometri
 matrix \(\hat{R} \in \mathbb{R}^{N_c \times 4}\).  
 Their contraction enters through the intermediate matrix
 \[
-C = G^{\mathsf T}\, \hat{R} 
+C = \frac{1}{N_c} G^{\mathsf T}\, \hat{R} 
 \qquad 
 C \in \mathbb{R}^{M \times 4}.
 \]
@@ -2282,11 +2267,11 @@ foundation of the quadratic descriptor used in DeepMD.
 
 \medskip
 
-The full (extended) descriptor is defined as the scaled Gram matrix
+The full (extended) descriptor is defined as the Gram matrix
 \begin{equation}
     D_{\mathrm{ext}}
     =
-    \frac{1}{N_c^2}\, C C^{\mathsf T}
+    C C^{\mathsf T}
     \qquad
     D_{\mathrm{ext}} \in \mathbb{R}^{M \times M}. 
 \end{equation}
@@ -2306,69 +2291,138 @@ Thus, the descriptor truncation is implemented by a simple column restriction.
 
 \subsubsection*{Derivative with respect to the intermediate matrix \(C\)}
 
-Because \(D_{\mathrm{ext}}\) is a symmetric quadratic form in \(C\), its matrix
-derivative follows directly from standard results:
+From the component definition
 \[
-\frac{\partial D_{\mathrm{ext}}}{\partial C}
-=
-\frac{2}{N_c^2}\, C.
+(D_{\mathrm{ext}})_{mn} = \sum_{\alpha=1}^{4} C_{m\alpha} C_{n\alpha},
 \]
-This expression indicates that each column of \(C\) contributes linearly to the
-gradient, scaled by the normalization factor \(N_c^{-2}\).
+the derivative of \(D_{\mathrm{ext}}\) with respect to one entry \(C_{p\beta}\)
+follows by direct application of the product rule:
+\[
+\frac{\partial (D_{\mathrm{ext}})_{mn}}{\partial C_{p\beta}}
+=
+\delta_{mp} C_{n\beta} + \delta_{np} C_{m\beta},
+\]
+where \(\delta_{ij}\) denotes the Kronecker delta.
 
-Since the final descriptor \(D\) keeps only the first \(M'\) columns of
-\(D_{\mathrm{ext}}\), the derivative of \(D\) with respect to \(C\) is obtained by
-restricting the above gradient to these columns:
-\begin{equation}
-   \frac{\partial D}{\partial C}
-    =
-    \left(
-    \frac{\partial D_{\mathrm{ext}}}{\partial C}
-    \right)[:,\,1\!:\!M']
-    =
-    \left(
-    \frac{2}{N_c^2}\, C
-    \right)[:,\,1\!:\!M']. 
-\end{equation}
-
+Since the network descriptor \(D\) retains only the first \(M'\) columns of
+\(D_{\mathrm{ext}}\), the corresponding derivative is
+\[
+\frac{\partial D_{mn}}{\partial C_{p\beta}}
+=
+\delta_{mp} C_{n\beta} + \delta_{np} C_{m\beta},
+\qquad n \le M'.
+\]
 
 \subsubsection*{Derivative with respect to the normalized geometric matrix}
 
-The intermediate matrix \(C\) depends linearly on \(\hat{R}\),
+The intermediate matrix
 \[
-C = G^{\mathsf T}\, \hat{R},
+C = \frac{1}{N_c} G^{\mathsf T}\hat R
 \]
-so its derivative with respect to \(\hat{R}\) is simply the transpose of the
-embedding matrix:
+depends on \(\hat R\) in two distinct ways:  
+(i) explicitly through the right factor \(\hat R\), and  
+(ii) implicitly through the embedding matrix \(G\), since each row \(G_{j:}\) is
+produced by the embedding network from the scalar input
+\(\hat s_{ij} := \hat R_{ij,0}\) of the normalized geometry.
+
+Accordingly, the derivative of \(C\) with respect to \(\hat R\) must be
+decomposed into an explicit and an implicit contribution,
 \[
-\frac{\partial C}{\partial \hat{R}}
+\frac{\partial C}{\partial \hat R}
 =
-G^{\mathsf T}.
+\left.\frac{\partial C}{\partial \hat R}\right|_{G}
++
+\left.\frac{\partial C}{\partial G}\right|_{\hat R}\,
+\frac{\partial G}{\partial \hat R}.
 \]
 
-Applying the chain rule yields the descriptor derivative with respect to the
-normalized geometry:
-\begin{equation}
-    \boxed{
-    \frac{\partial D}{\partial \hat{R}}
-    =
-    \frac{\partial D}{\partial C}
-    \,
-    \frac{\partial C}{\partial \hat{R}}
-    =
-    \left(
-    \frac{2}{N_c^2}\, C
-    \right)[:,\,1\!:\!M']
-    G^{\mathsf T}.
-    }
-\end{equation}
+In component form, using
+\[
+C_{p\beta}=\frac{1}{N_c}\sum_{j=1}^{N_c} G_{jp}\hat R_{j\beta},
+\]
+the explicit contribution (holding \(G\) fixed) is
+\[
+\left.\frac{\partial C_{p\beta}}{\partial \hat R_{j\alpha}}\right|_{G}
+=
+\frac{1}{N_c}\,G_{jp}\,\delta_{\beta\alpha}.
+\]
+
+Since the embedding matrix \(G\) depends on \(\hat R\) only through the scalar
+input \(\hat R_{ij,0}\), the implicit contribution simplifies to
+\[
+\frac{\partial G_{\ell p}}{\partial \hat R_{j\alpha}}
+=
+\delta_{\ell j}\,\delta_{0\alpha}\,
+\frac{\partial G_{jp}}{\partial \hat R_{ij,0}},
+\]
+where \(\partial G_{jp}/\partial \hat R_{ij,0}\) is obtained by differentiation of
+the embedding network with respect to its scalar input.
+
+Substituting this relation yields the full derivative
+\[
+\boxed{
+\frac{\partial C_{p\beta}}{\partial \hat R_{j\alpha}}
+=
+\frac{1}{N_c}\,G_{jp}\,\delta_{\beta\alpha}
++
+\frac{1}{N_c}\,\delta_{0\alpha}\,
+\frac{\partial G_{jp}}{\partial \hat R_{ij,0}}\,
+\hat R_{j\beta}.
+}
+\]
+
+\medskip
+\noindent\textbf{Descriptor derivative with respect to \(\hat R\).}
+Since
+\[
+(D_{\mathrm{ext}})_{mn}=\sum_{\beta=1}^{4} C_{m\beta}C_{n\beta},
+\qquad
+D_{mn}=(D_{\mathrm{ext}})_{mn},\quad n\le M',
+\]
+the chain rule gives, for \(n\le M'\),
+\[
+\frac{\partial D_{mn}}{\partial \hat R_{j\alpha}}
+=
+\sum_{\beta=1}^{4}
+\left(
+\frac{\partial C_{m\beta}}{\partial \hat R_{j\alpha}}\,C_{n\beta}
++
+C_{m\beta}\,\frac{\partial C_{n\beta}}{\partial \hat R_{j\alpha}}
+\right).
+\]
+
+Using the previously derived expression
+\[
+\frac{\partial C_{p\beta}}{\partial \hat R_{j\alpha}}
+=
+\frac{1}{N_c}\,G_{jp}\,\delta_{\beta\alpha}
++
+\frac{1}{N_c}\,\delta_{0\alpha}\,
+\frac{\partial G_{jp}}{\partial \hat R_{ij,0}}\,
+\hat R_{j\beta},
+\]
+we obtain
+\[
+\boxed{
+\frac{\partial D_{mn}}{\partial \hat R_{j\alpha}}
+=
+\frac{1}{N_c}\left(G_{jm}C_{n\alpha}+G_{jn}C_{m\alpha}\right)
++
+\frac{1}{N_c}\,\delta_{0\alpha}
+\left(
+\frac{\partial G_{jm}}{\partial \hat R_{ij,0}}\sum_{\beta=1}^{4}\hat R_{j\beta}C_{n\beta}
++
+\frac{\partial G_{jn}}{\partial \hat R_{ij,0}}\sum_{\beta=1}^{4}\hat R_{j\beta}C_{m\beta}
+\right),
+\qquad n\le M'.
+}
+\]
 
 
-This expression plays a central role in the force derivation, as it couples the
-geometric derivatives of \(\hat{R}\) (Section~\ref{sec:R_derivative})
-with the embedding and descriptor structures, enabling full propagation of
-gradients from the energy model back to atomic coordinates.
-
+This expression shows explicitly that only the radial component
+\(\hat R_{ij,0}\) influences the descriptor through the embedding network, while
+the remaining geometric components affect \(C\) only through the direct linear
+term.
 
 
 \subsection{Fitting Network Derivative}
@@ -2381,7 +2435,7 @@ energy,
 E_i = \mathrm{NN}_{s_i}(\mathbf{D}_i),
 \]
 where $s_i$ denotes the species of atom~$i$ and
-$\mathbf{D}_i \in \mathbb{R}^{M'}$ is the descriptor vector constructed in
+$D_i \in \mathbb{R}^{M \times M'}$ is the descriptor matrix constructed in
 Section~\ref{sec:descriptor_computation}.  
 To assemble forces, we require the gradient (Jacobian row)
 \[
@@ -2439,7 +2493,7 @@ For the fitting network, this proceeds as follows for each descriptor component
 $\alpha$:
 
 \begin{enumerate}
-    \item The descriptor vector $\mathbf{D}_i$ is promoted to an array of
+    \item The descriptor matrix $D_i$ is flattened and promoted to an array of
           autodiff variables, where the $\alpha$-th component is seeded with unit
           tangent and all others with zero tangent.
 
@@ -2491,13 +2545,12 @@ bitwise agreement with DeepMD--v2 energies and forces for all tested models.
 
 
 
-\subsection{Final Force assembly}
+\subsection{Final Force Assembly}
 \label{sec:final_force_assembly}
 
-We now combine all derivative components derived in the preceding sections to obtain
-the explicit DeepMD--v2 force expression.  
-Starting from the energy decomposition in Eq.~\eqref{eq:energy_decomp}, the force on
-atom $k$ follows from
+We now assemble all derivative components derived in the preceding sections to
+obtain the explicit DeepMD--v2 force expression. Starting from the energy
+decomposition in Eq.~\eqref{eq:energy_decomp}, the force on atom $k$ is
 
 \begin{equation}
     \mathbf{F}_k
@@ -2505,13 +2558,10 @@ atom $k$ follows from
     -\,\frac{\partial E}{\partial \mathbf{r}_k}
     =
     -\,\sum_{i}
-    \frac{\partial E_i}{\partial D_i}
-    \frac{\partial D_i}{\partial \mathbf{r}_k}.
+    \frac{\partial E_i}{\partial \mathbf{r}_k}.
 \end{equation}
 
-
-This expression backpropagates the fitting-network derivative through the descriptor
-construction pathway
+Using the chain rule along the descriptor construction pathway
 \[
 \mathbf{r}
 \;\longrightarrow\;
@@ -2519,125 +2569,108 @@ construction pathway
 \;\longrightarrow\;
 G
 \;\longrightarrow\;
+C
+\;\longrightarrow\;
 D
 \;\longrightarrow\;
-E.
+E,
 \]
-
-% ---------------------------------------------------------
-\subsubsection{Contribution from the fitting network}
-
-From Section~\ref{sec:fitting_network_derivative}, forward-mode AD yields the
-Jacobian
-\[
-\boxed{
-\frac{\partial E_i}{\partial D_i}
-=
-J_i \in \mathbb{R}^{M'}
-},
-\]
-where $J_{i,\alpha}$ is the sensitivity of the atomic energy to the $\alpha$-th
-descriptor component.  
-This vector forms the final gradient that propagates backward through the descriptor.
-
-% ---------------------------------------------------------
-\subsubsection{Contribution from the descriptor}
-
-From Section~\ref{sec:descriptor_derivative}, the descriptor derivative is
+we obtain
 \begin{equation}
-    \boxed{
-    \frac{\partial D_i}{\partial \mathbf{r}_k}
-    =
-    \biggl[
-    \frac{\partial D_i}{\partial \hat{R}_i}
-    \;+\;
-    \frac{\partial D_i}{\partial G_i}
-    \,
-    \frac{\partial G_i}{\partial \hat{s}_i}
-    \,
-    \frac{\partial \hat{s}_i}{\partial \hat{R}_i}
-    \biggr]
-    \frac{\partial \hat{R}_i}{\partial \mathbf{r}_k}
-    }
+\boxed{
+\mathbf{F}_k
+=
+-
+\sum_i
+% \sum_{m,n \le M'}
+\sum_{m=1}^{M} \sum_{n=1}^{M'}
+J_{i,mn}
+\,
+\frac{\partial D_{i,mn}}{\partial \mathbf{r}_k}
+}
 \end{equation}
+where
+% \( J_i = \partial E_i / \partial D_i \) is the Jacobian of the fitting network.
 
 where
-\begin{itemize}
-    \item $\hat{s}_i$ denotes the vector of normalized inverse distances (first column of $\hat{R}_i$),
-    \item $\partial \hat{s}_i / \partial \hat{R}_i$ is the projector selecting the first column,
-    \item ``$:$'' denotes Frobenius contraction over neighbour and feature indices.
-\end{itemize}
-
-No further expansion is necessary: all factors have been derived previously.
-
-% ---------------------------------------------------------
-\subsubsection{Contribution from geometric derivatives}
-
-The only dependence on atomic coordinates appears through the normalized geometry,
-whose derivative
 \[
-\frac{\partial \hat{R}_i}{\partial \mathbf{r}_k}
+\boxed{
+J_i := \frac{\partial E_i}{\partial D_i} \in \mathbb{R}^{M \times M'}
+}
 \]
-was derived analytically in Section~\ref{sec:R_derivative}, including contributions
-from:
-\begin{itemize}
-    \item relative displacements $\mathbf{r}_{ij}$,
-    \item inverse distances $1/r_{ij}$,
-    \item directional components $d_\alpha/r_{ij}^2$,
-    \item and the switching function $f_{\mathrm{sw}}(r_{ij})$.
-\end{itemize}
-
-This tensor provides the geometric part of the chain rule.
-
 % ---------------------------------------------------------
-\subsubsection{Final force expression}
 
-Substituting Eq.~(4.2) into Eq.~(4.1) gives the complete DeepMD--v2 force:
-    \begin{equation}
-    \boxed{
-    \mathbf{F}_k
-    =
-    -
-    \sum_i
-    \left( \frac{\partial E_i}{\partial D_i} \right)
-    \biggl[
-    \frac{\partial D_i}{\partial \hat{R}_i}
-    +
-    \frac{\partial D_i}{\partial G_i}
-    \,
-    \frac{\partial G_i}{\partial \hat{s}_i}
-    \,
-    \frac{\partial \hat{s}_i}{\partial \hat{R}_i}
-    \biggr]
-    \frac{\partial \hat{R}_i}{\partial \mathbf{r}_k}
-    }
+\subsubsection{Descriptor--level contribution}
+
+From Section~\ref{sec:descriptor_derivative}, the derivative of the descriptor
+with respect to the normalized geometry is
+\begin{equation}
+\boxed{
+\frac{\partial D_{i,mn}}{\partial \hat R_{i,j\alpha}}
+=
+\frac{1}{N_c}\left(G_{i,jm} C_{i,n\alpha} + G_{i,jn} C_{i,m\alpha}\right)
++
+\frac{1}{N_c}\,\delta_{0\alpha}
+\left(
+\frac{\partial G_{i,jm}}{\partial \hat R_{i,j0}}
+\sum_{\beta} \hat R_{i,j\beta} C_{i,n\beta}
++
+\frac{\partial G_{i,jn}}{\partial \hat R_{i,j0}}
+\sum_{\beta} \hat R_{i,j\beta} C_{i,m\beta}
+\right).
+}
 \end{equation}
 
+% ---------------------------------------------------------
+
+\subsubsection{Geometric contribution}
+
+The normalized geometry depends explicitly on the atomic coordinates, and its
+analytic derivative
+\[
+\frac{\partial \hat R_{i,j\alpha}}{\partial \mathbf r_k}
+\]
+was derived in Section~\ref{sec:R_derivative}. This term contains the complete
+geometric information (relative displacements, inverse distances, directional
+components, and switching functions).
+
+% ---------------------------------------------------------
+
+\subsubsection{Final force expression}
+
+Combining the descriptor derivative with the geometric derivative yields the
+explicit DeepMD--v2 force:
+
+\begin{equation}
+\boxed{
+\mathbf F_k
+=
+-
+\sum_i
+\sum_{j}
+% \sum_{m,n \le M'}
+\sum_{m=1}^{M} \sum_{n=1}^{M'}
+J_{i,mn}
+\,
+\frac{\partial D_{i,mn}}{\partial \hat R_{i,j\alpha}}
+\,
+\frac{\partial \hat R_{i,j\alpha}}{\partial \mathbf r_k}.
+}
+\end{equation}
+
+This expression decomposes the force into a purely neural contribution
+(\(J_i\) and \(\partial G / \partial \hat R_{ij,0}\)) and an analytic geometric
+contribution (\(\partial \hat R / \partial \mathbf r_k\)), making the entire
+force evaluation mathematically explicit and numerically stable.
+
+\medskip
+
+Equation~(\ref{sec:final_force_assembly}) therefore reconstructs the full
+DeepMD--v2 force pathway in HALMD using a consistent hybrid of analytic geometry
+and automatic differentiation for the neural components.
 
 
 
-This final expression cleanly separates all contributions:
-\begin{itemize}
-    \item the \textit{fitting-network derivative}
-          $\partial E_i / \partial D_i$
-          (forward-mode AD),
-    \item the \textit{descriptor-level derivatives}
-          $\partial D_i / \partial \hat{R}_i$ and $\partial D_i / \partial G_i$,
-    \item the \textit{embedding-network sensitivity to geometry}
-          $\partial G_i / \partial \hat{s}_i$,
-    \item the \textit{projection} $\partial \hat{s}_i / \partial \hat{R}_i$,
-    \item the \textit{analytic geometric derivatives}
-          $\partial \hat{R}_i / \partial \mathbf{r}_k$.
-\end{itemize}
-
-Equation~(4.3) therefore reconstructs the full DeepMD--v2 force pathway inside
-HALMD using a hybrid of analytic geometry and automatic differentiation for the
-neural components.
-
-
-
-
-\newpage
 \section{Results}
 \label{sec:results}
 
