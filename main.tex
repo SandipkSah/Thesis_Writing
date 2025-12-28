@@ -526,7 +526,7 @@ The deep potential model in both DP-v1 and DP-v2 consists of two neural networks
 
 Forces are obtained as the negative gradients of the total energy:
 \begin{equation}\label{eq:force_def}
-    \mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.   
+    \mathbf{F}^i = -\frac{\partial E}{\partial \mathbf{r}_i}.   
 \end{equation}
 
 During training, these derivatives are computed automatically through TensorFlow’s backpropagation engine. During inference---which is the focus of this thesis---the gradients are obtained by applying the chain rule explicitly through the descriptor and neural-network layers, following the DeePot-v2 computational graph~\cite{zeng2023deepmdv2}.
@@ -592,12 +592,12 @@ Wrap $\rightarrow$ Ghost $\rightarrow$ extended coordinates
 % Row 2
 \node[box] (R) [below=of env] {%
 \textbf{$R$ Matrix + Normalization}\\
-Compute $R_{ij}$, normalize
+Compute $R^i_{j}$, normalize
 };
 
 \node[box] (filter) [left=of R] {%
 \textbf{Filter Networks}\\
-$G_{ij} =N_{\theta}^{(a,b)}(R_{ij})$
+$G^i_{j} =N_{\theta}^{(a,b)}(R^i_{j})$
 };
 
 % % Row 3
@@ -608,18 +608,18 @@ $G_{ij} =N_{\theta}^{(a,b)}(R_{ij})$
 
 \node[box] (D) [below=of filter] {%
 \textbf{Descriptor Construction}\\
-Compute $D_i$ from $G_{ij}$ and $R_{ij}$
+Compute $D^i$ from $G^i$ and $R^i$
 };
 
 % Row 4
 \node[box] (nn) [right=of D] {%
 \textbf{DeepMD Neural Networks}\\
-$E_i = NN_s(D_i)$
+$E_i = NN_s(D^i)$
 };
 
 \node[box] (energy) [below=of nn] {%
 \textbf{Energy Evaluation}\\
-$E_{\text{total}} = \sum_i E_i$
+$E_{\text{total}} = \sum_i E^i$
 };
 
 
@@ -718,7 +718,7 @@ Each embedding layer provides:
 Collectively, these nodes define the mapping
 
 \begin{equation}
-    \hat{s}_{ij} \mapsto G_{ij}
+    \hat{s}_{ij} \mapsto G^i_{j}
 \end{equation}
 
 
@@ -991,7 +991,7 @@ documented in Section~3.4.
 \subsubsection{Normalization using \texorpdfstring{\(t_{\mathrm{avg}}, t_{\mathrm{std}}\)}{tavg, tstd}}
 DeepMD-v2 normalizes descriptor features using training-time statistics:
 \[
-X' = \frac{X - t_{\mathrm{avg}}}{t_{\mathrm{std}}}.
+\hat{X} = \frac{X - t_{\mathrm{avg}}}{t_{\mathrm{std}}}.
 \]
 The previous HALMD implementation lacked this step; the new pipeline integrates normalization 
 directly, ensuring full compatibility with DeepMD-v2.
@@ -1054,22 +1054,6 @@ t_j = a,\; r_{ij} < r_c
 where $t_j$ is the species of neighbour $j$.
 Each such list contains only the neighbours belonging to species $a$.
 
-% \paragraph{Distance sorting within each species group.}
-% DeepMD requires each species block to be internally sorted by distance.
-% Thus, for every species $a$, the list
-% $\text{neighbors\_by\_type}[a]$ is sorted according to $r_{ij}$:
-% \[
-% \text{sort}\bigl(\text{neighbors\_by\_type}[a],\; \text{key} = r_{ij} \bigr).
-% \]
-
-% This ensures that:
-% \begin{itemize}
-%     \item the nearest neighbours of each species appear first,
-%     \item rows of the descriptor matrices corresponding to species $a$ match the
-%           exact order used by DeepMD-kit,
-%     \item neighbour-dependent neural networks receive inputs in the correct,
-%           deterministic order.
-% \end{itemize}
 
 
 \paragraph{Sorting omitted for efficiency.}
@@ -1118,18 +1102,16 @@ exactly \(N_c^{(a)}\) rows:
 \end{cases}
 \]
 This behaviour matches the DeepMD-v2 implementation, where missing neighbours
-are represented by zero-valued geometric entries in the environment matrix.
-Invalid neighbour indices are masked, resulting in
+are represented by zero-valued geometric entries in the environment matrix resulting in
 \[
-R_{ij} = 0, \qquad
-\hat{s}_{ij} = 0, \qquad
-G_{ij} = N^{(a,b)}_{\theta}(0),
+R^i_{j} = [0, 0, 0, 0] 
+% \hat{s}_{ij} = 0, \qquad
+% G_{ij} = N^{(a,b)}_{\theta}(0),
 \]
-for all padded rows. No duplication of the last valid neighbour is performed.
+for all padded rows of environment matrices \(R\).
 
-Zero-padding ensures that the assembled \(R\) and \(G\) matrices have the
-fixed, model-dependent shape required by DeepMD-v2 and that the fitting network
-receives inputs consistent with the TensorFlow/JAX implementation.
+Zero-padding ensures that the assembled \(R\) matrices have the
+fixed, model-dependent shape required by DeepMD-v2.
 
 
 
@@ -1171,151 +1153,17 @@ for enabling HALMD to evaluate multi-species DeepMD-v2 models correctly.
 
 
 
-
-% \subsection{Computation of R and G Matrices}
-% \subsubsection{R Matrix}
-
-% \subsection{Construction of the configuration matrix $R$}
-% \label{sec:R_matrix_construction}
-
-% Once wrapped coordinates, ghost-cell expansions, and species-ordered neighbour
-% lists have been obtained (Section~\ref{sec:env_construction}), the next task is to
-% construct the geometric matrix \(R\).  
-% This matrix encodes the local atomic environment of a central atom \(i\) in a way that
-% is translationally, rotationally, and permutation invariant
-% \cite{wang2018deepmd,zeng2023deepmdv2}.  
-% Each of the \(N_c^{\mathrm{(total)}}\) neighbour slots contributes one row of four geometric
-% quantities.
-
-% \subsubsection{Relative displacement and inverse-distance quantities}
-
-% For each neighbour selected into the fixed-capacity list, the relative displacement is computed
-% using the \emph{wrapped and ghost-extended coordinates}:
-% \[
-% \mathbf{r}_{ij} = \mathbf{r}_j^{(\mathbf{s})} - \tilde{\mathbf{r}}_i
-% \quad\in \mathbb{R}^3 , 
-% \qquad
-% r_{ij} = \lVert \mathbf{r}_{ij} \rVert \in \mathbb{R}.
-% \]
-
-% \subsubsection{Raw geometric row}
-
-% DeepMD defines the raw geometric features of neighbour \(j\) (row index \(k\)) as
-% \[
-% R_{k}
-% =
-% \left[
-%     s_{ij},\;
-%     \frac{x_{ij}}{r_{ij}^{2}},\;
-%     \frac{y_{ij}}{r_{ij}^{2}},\;
-%     \frac{z_{ij}}{r_{ij}^{2}}
-% \right]
-% \quad\in\mathbb{R}^{4},
-% \qquad
-% s_{ij} = \frac{1}{r_{ij}}.
-% \]
-% Collecting all rows yields the matrix
-% \[
-% R \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-% \]
-
-% \subsubsection{Cutoff behaviour and switching function}
-
-% To ensure smooth decay near the cutoff radius, DeepMD applies a quintic switching function:
-% \begin{equation}
-%     f_{\mathrm{sw}}(r)=
-%     \begin{cases}
-%     1, & r \le r_{\mathrm{sm}},\\[2pt]
-%     x^3(-6x^2+15x-10)+1, & r_{\mathrm{sm}}<r<r_c,\\[2pt]
-%     0, & r \ge r_c,
-%     \end{cases}
-%     \qquad
-%     x = \frac{r-r_{\mathrm{sm}}}{r_c - r_{\mathrm{sm}}}.
-% \end{equation}
-
-
-% The resulting weight vector is
-% \[
-% w_k = f_{\mathrm{sw}}(r_{ij(k)}),
-% \qquad
-% w \in \mathbb{R}^{N_c^{\mathrm{(total)}}}.
-% \]
-
-% Applying this weight yields the weighted geometric matrix
-% \[
-% R^{\mathrm{w}}_{k,\alpha} = R_{k,\alpha} \, w_k ,
-% \qquad
-% R^{\mathrm{w}} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-% \]
-
-% \subsubsection{Species-aware neighbour ordering}
-
-% DeepMD-v2 requires neighbours to be arranged according to:
-% \begin{enumerate}
-%     \item neighbour species,
-%     % \item increasing neighbour distance within each species,
-%     \item a fixed per-species capacity determined by
-%     \[
-%         \texttt{sel} = [N_c^{(0)},\, N_c^{(1)},\dots ].
-%     \]
-% \end{enumerate}
-
-% After this procedure, every central atom receives a geometric matrix with the same
-% shape:
-% \[
-% R^{\mathrm{w}} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-% \]
-
-% \subsubsection{Normalization of geometric features}
-
-% DeepMD-v2 applies feature-wise normalization using tensors
-% \[
-% t_{\mathrm{avg}},\ t_{\mathrm{std}}
-% \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-% \]
-
-% The normalized geometric matrix is
-% \begin{equation}
-%     \hat{R}_{k,\alpha}
-%     =
-%     \frac{
-%         R^{\mathrm{w}}_{k,\alpha} - (t_{\mathrm{avg}})_{k,\alpha}
-%     }{
-%         (t_{\mathrm{std}})_{k,\alpha}
-%     },
-%     \qquad
-%     \hat{R} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-% \end{equation}
-
-
-% The first column,
-% \[
-% \hat{s}_{ij} = \hat{R}_{ij,0},
-% \]
-% serves as the scalar input to the embedding network.
-
-% \subsubsection{Summary}
-
-% The constructed matrix
-% \[
-% \hat{R} \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}
-% \]
-% is bitwise compatible with DeepMD-v2 and provides the geometric inputs for the next
-% stage of the descriptor.
-
-
-\subsection{Construction of the configuration matrix $R$}
+\subsection{Construction of the configuration matrix \texorpdfstring{$R$}{R}}
 \label{sec:R_matrix_construction}
 
 Once wrapped coordinates, ghost-cell expansions, and species-ordered neighbour
 lists have been obtained (Section~\ref{sec:env_construction}), the next task is to
-construct the geometric matrix \(R\).  
-This matrix encodes the local atomic environment of a central atom \(i\) in a way that
+construct the geometric matrix $R^i$.  
+This matrix encodes the local atomic environment of a central atom $i$ in a way that
 is translationally, rotationally, and permutation invariant
 \cite{wang2018deepmd,zeng2023deepmdv2}.  
-Each of the \(N_c^{\mathrm{(total)}}\) neighbour slots contributes one row of four geometric
+Each of the $N_c^{\mathrm{(total)}}$ neighbour slots contributes one row of four geometric
 quantities.
-
 
 \subsubsection{Relative displacement}
 
@@ -1330,7 +1178,6 @@ The relative displacement vector and its magnitude are then given by
 \qquad
 r_{ij} = \lVert \mathbf r_{ij} \rVert .
 \end{equation}
-
 
 \subsubsection{Cutoff behaviour and switching function}
 
@@ -1349,10 +1196,8 @@ x = \dfrac{r - r_s}{r_c - r_s}.
 \subsubsection{Raw geometric matrix}
 
 DeepMD defines the geometric features of neighbour $j$ of atom $i$ as
-
-
 \begin{equation}
-    (R_i)_j =
+    (R^i)_j =
     \bigl[
         s(r_{ij}),\;
         s(r_{ij}) \dfrac{x_{ij}}{r_{ij}},\;
@@ -1363,16 +1208,15 @@ DeepMD defines the geometric features of neighbour $j$ of atom $i$ as
 \label{eq:raw_R_row}
 \end{equation}
 
-
 Collecting all neighbour rows yields the raw geometric matrix
 \begin{equation}\label{eq:raw_geometric_matrix}
-R_i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
+R^i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
 \end{equation}
 
 \subsubsection{Species-aware neighbour ordering}
 
 Neighbours are arranged by species and padded to fixed per-species capacities
-prescribed by \(\texttt{sel}\) (Eq.~\eqref{eq:sel_vector}), yielding for every
+prescribed by \texttt{sel} (Eq.~\eqref{eq:sel_vector}), yielding for every
 atom a geometric matrix of identical shape, as described in Eq.~\eqref{eq:raw_geometric_matrix}.
 
 \subsubsection{Feature normalization}
@@ -1380,44 +1224,47 @@ atom a geometric matrix of identical shape, as described in Eq.~\eqref{eq:raw_ge
 In the present implementation, the geometric matrix is further normalized using
 training-time statistics
 \[
-t_{\mathrm{avg}},\ t_{\mathrm{std}} \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
+t_{\mathrm{avg}}^i,\ t_{\mathrm{std}}^i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
 \]
+
 The normalized matrix is defined as
 \begin{equation}
-\hat R_{k,\alpha}
+\hat R^i_{k,\alpha}
 =
-\frac{R_{k,\alpha} - (t_{\mathrm{avg}})_{k,\alpha}}
-     {(t_{\mathrm{std}})_{k,\alpha}},
+\frac{R^i_{k,\alpha} - (t_{\mathrm{avg}}^i)_{k,\alpha}}
+     {(t_{\mathrm{std}}^i)_{k,\alpha}},
 \qquad
-\hat R \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
+\hat R^i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
 \end{equation}
 
-The first column $\hat s_{ij} = \hat R_{ij,0}$ serves as the scalar input to the
-embedding network.
+The first column
+\[
+\hat s_{ij} = \hat R^i_{j,0}
+\]
+serves as the scalar input to the embedding network.
 
 \subsubsection{Summary}
 
-The matrix $\hat R$ provides the complete geometric input for the subsequent
+The matrix $\hat R^i$ provides the complete geometric input for the subsequent
 descriptor construction stage and is fully compatible with the DeepMD-v2
 reference implementation.
-
-
-
-
-% % ======================================================================
 
 
 \subsection{Construction of the embedding matrix \texorpdfstring{$G$}{G}}
 \label{sec:G_matrix_construction}
 
 The second stage of the DeepPot-SE descriptor transforms each normalized inverse 
-distance $\hat{s}_{ij} = \hat{R}_{ij,0}$ into a high-dimensional embedding vector through 
-a species-pair–specific \emph{filter network}.  
+distance 
+\[
+\hat{s}_{ij} = \hat{R}^i_{j,0}
+\]
+into a high-dimensional embedding vector through a species-pair–specific 
+\emph{filter network}.  
 Collecting the embeddings for all neighbour slots produces the matrix
 \[
-G \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M},
+G^i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M},
 \]
-where $M$ is the embedding dimension , and
+where $M$ is the embedding dimension and
 $N_c^{\mathrm{(total)}} = \sum_b N_c^{(b)}$ is the total neighbour capacity specified by 
 the model’s \texttt{sel} vector.
 
@@ -1427,30 +1274,30 @@ Each neighbour slot contributes a single scalar input
 \[
 \hat{s}_{ij} \in \mathbb{R},
 \]
-obtained from the first column of the normalized geometric matrix $\hat{R}$.
+obtained from the first column of the normalized geometric matrix $\hat{R}^i$.
 
 The embedding network maps this scalar to an $M$-dimensional output:
 \[
-G_{ij} \in \mathbb{R}^M.
+G^i_{j:} \in \mathbb{R}^M.
 \]
 
 Stacking the embedding vectors for all neighbour rows yields
 \[
-G =
+G^i =
 \begin{bmatrix}
-G_{i1}^{T} \\
-G_{i2}^{T} \\
+(G^i_{1:})^{T} \\
+(G^i_{2:})^{T} \\
 \vdots \\
-G_{iN_c^{(\mathrm{total})}}^{T}
+(G^i_{N_c^{(\mathrm{total})}:})^{T}
 \end{bmatrix}
 \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M}.
 \]
-The ordering of the rows is identical to the ordering of the rows of $\hat{R}$: 
-neighbours are grouped by species and placed into fixed-capacity species blocks as prescribed by 
-sel
-sel.
 
-\subsubsection{Structure of the Filter Network}
+The ordering of the rows is identical to the ordering of the rows of $\hat{R}^i$: 
+neighbours are grouped by species and placed into fixed-capacity species blocks as prescribed by 
+\texttt{sel}.
+
+\subsubsection{Structure of the filter network}
 
 For each central–neighbour species pair $(a,b)$, DeepMD-v2 defines a dedicated 
 multi-layer perceptron (MLP)
@@ -1476,15 +1323,13 @@ the forward pass is
     h^{(1)} &= \tanh\!\left(W^{(1)}_{a,b}\,\hat{s}_{ij} + b^{(1)}_{a,b}\right), \\
     h^{(\ell)} &= \tanh\!\left(W^{(\ell)}_{a,b}\,h^{(\ell-1)} + b^{(\ell)}_{a,b}\right),
     \qquad \ell = 2,\dots,L, \\
-    G_{ij} &= W^{(L+1)}_{a,b}\,h^{(L)} + b^{(L+1)}_{a,b}.
+    G^i_{j:} &= W^{(L+1)}_{a,b}\,h^{(L)} + b^{(L+1)}_{a,b}.
     \end{aligned} 
 \end{equation}
 
-
-These weights $W^{(\ell)}_{a,b}$ and biases $b^{(\ell)}_{a,b}$ are extracted from the Frozen 
-Model under node names of the form  
-`\texttt{filter\_type\_a/matrix\_l\_b}` and `\texttt{filter\_type\_a/bias\_l\_b}` 
-(see Section~3.2).  
+These weights $W^{(\ell)}_{a,b}$ and biases $b^{(\ell)}_{a,b}$ are extracted from the frozen 
+model under node names of the form  
+\texttt{filter\_type\_a/matrix\_l\_b} and \texttt{filter\_type\_a/bias\_l\_b}.  
 The subscript $b$ corresponds to the neighbour species, confirming explicitly that 
 the network architecture depends on both the central and neighbour species.
 
@@ -1493,7 +1338,7 @@ the network architecture depends on both the central and neighbour species.
 For a central atom of species $a$ and a neighbour of species $b$, the embedding is 
 computed using the matching filter network:
 \[
-G_{ij} = N^{(a,b)}_{\theta}\!\left( \hat{s}_{ij} \right).
+G^i_{j:} = N^{(a,b(j))}_{\theta}\!\left( \hat{s}_{ij} \right).
 \]
 
 Different neighbour species therefore produce embeddings through different MLPs 
@@ -1506,40 +1351,33 @@ HALMD stores the entire set of such networks in a two-dimensional structure:
 \texttt{neural\_networks}[a][b] \;\equiv\; N^{(a,b)}_{\theta}.
 \]
 
-\subsubsection{Runtime Network Selection and Evaluation}
+\subsubsection{Runtime network selection and evaluation}
 
 After species-grouped neighbour lists are constructed 
 (Section~\ref{sec:env_construction}), each neighbour row $j$ is associated with a 
-neighbour-species label $b_{(j)}$.  
+neighbour-species label $b(j)$.  
 The embedding vector for that row is obtained via
 \[
-G_{ij} = N^{(a,b_{(j)})}_{\theta}\!\left( \hat{s}_{ij} \right).
+G^i_{j:} = N^{(a,b(j))}_{\theta}\!\left( \hat{s}_{ij} \right).
 \]
 
-Thus:
-\begin{itemize}
-    \item row $j$ of $\hat{R}$ determines $\hat{s}_{ij}$,
-    \item the species list determines $b_{(j)}$,
-    \item the corresponding network $N^{(a,b_{(j)})}_{\theta}$ is applied,
-    \item the resulting $G_{ij}$ is stored in row $j$ of $G$.
-\end{itemize}
-
-This ensures strict alignment between rows of $\hat{R}$ and rows of $G$, exactly as in the 
+The resulting $G^i_{j:}$ is stored in row $j$ of $G^i$.  
+This ensures strict alignment between rows of $\hat{R}^i$ and rows of $G^i$, exactly as in the 
 DeepMD-v2 computational graph.
 
 \subsubsection{Summary}
 
-The embedding matrix $G$ is constructed through the following steps:
+The embedding matrix $G^i$ is constructed through the following steps:
 \begin{itemize}
-    \item extract the scalar geometric input $\hat{s}_{ij}$ from the normalized $R$-matrix,
+    \item extract the scalar geometric input $\hat{s}_{ij}$ from the normalized matrix $\hat{R}^i$,
     \item select the appropriate species-pair filter network $N^{(a,b)}_\theta$,
     \item evaluate its multi-layer structure using the trained weights and biases,
     \item assemble all embedding vectors into the matrix  
-          $G \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M}$.
+          $G^i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M}$.
 \end{itemize}
 
 The resulting matrix provides the learned many-body representation that, together with 
-$\hat{R}$, forms the complete input to the quadratic descriptor described in the next section.
+$\hat{R}^i$, forms the complete input to the quadratic descriptor described in the next section.
 
 
 \subsection{Descriptor Computation}
@@ -1547,9 +1385,9 @@ $\hat{R}$, forms the complete input to the quadratic descriptor described in the
 
 The DeepPot-SE (\texttt{se\_e2\_a}) descriptor encodes the environment of a central atom \(i\)
 through a combination of (i) normalized geometric features collected in the matrix
-\(\hat{R}_i\) and (ii) learned nonlinear embeddings collected in the matrix \(G_i\).
-These two matrices are then contracted into a quadratic descriptor \(D_i\), which forms the
-input to the species-dependent fitting network predicting the atomic energy \(E_i\).
+\(\hat{R}^i\) and (ii) learned nonlinear embeddings collected in the matrix \(G^i\).
+These two matrices are then contracted into a quadratic descriptor \(D^i\), which forms the
+input to the species-dependent fitting network predicting the atomic energy \(E^i\).
 
 DeepMD-v2 assigns neighbour capacity on a per-species basis.  
 Given species set \(\mathcal{S}\) and model parameters \(N_c^{(b)}\) for each species
@@ -1558,7 +1396,6 @@ Given species set \(\mathcal{S}\) and model parameters \(N_c^{(b)}\) for each sp
    N_c^{\mathrm{(total)}} =
 \sum_{b\in\mathcal{S}} N_c^{(b)} . 
 \end{equation}
-
 
 All matrices involved in descriptor computation are dimensioned using this total capacity.
 
@@ -1569,8 +1406,7 @@ Once the wrapped coordinates, periodic images, and species-ordered neighbour lis
 constructed (Section~\ref{sec:env_construction}), the geometric features for atom \(i\) are
 assembled into the matrix
 \[
-\hat{R}_i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
-% \tag{4.2}
+\hat{R}^i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}.
 \]
 
 Each row corresponds to a specific neighbour slot and contains four quantities:
@@ -1582,17 +1418,15 @@ Each row corresponds to a specific neighbour slot and contains four quantities:
 
 Normalization follows the statistics extracted from the trained model:
 \begin{equation}
-    \hat{R}_{ij,\alpha} =
+    \hat{R}^i_{j,\alpha} =
     \frac{R_{ij,\alpha} - (t_{\mathrm{avg}})_{\alpha}}
         {(t_{\mathrm{std}})_{\alpha}},
     \qquad \alpha=0,\dots,3.
 \end{equation}
 
-
 The first column is used as the scalar geometric input for the nonlinear embedding:
 \[
-\hat{s}_{ij} = \hat{R}_{ij,0}.
-% \tag{4.4}
+\hat{s}_{ij} = \hat{R}^i_{j,0}.
 \]
 
 This matrix therefore represents a geometrically structured, normalized description of the
@@ -1606,27 +1440,24 @@ Each neighbour slot \(j\) has a known neighbour species \(b(j)\).
 DeepMD-v2 assigns a distinct filter (embedding) network for every central–neighbour pair
 \((a,b)\), where \(a\) is the central species:
 \[
-G_{ij} = N_{\theta}^{(a,b(j))}(\hat{s}_{ij}),
-% \tag{4.5}
+G^i_{j:} = N_{\theta}^{(a,b(j))}(\hat{s}_{ij}),
 \]
 with \(N_{\theta}^{(a,b)} : \mathbb{R} \to \mathbb{R}^{M}\).
 
 Evaluating all such networks yields
 \[
-G_i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M}.
-% \tag{4.6}
+G^i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times M}.
 \]
 
 Only the first \(M'\) embedding channels are required for the descriptor:
 \begin{equation}
-    G_i^{\mathrm{trunc}} = G_i[:,\, 1:M'] \in
+    G^{i,\mathrm{trunc}} = G^i[:,\,1:M'] \in
     \mathbb{R}^{N_c^{\mathrm{(total)}} \times M'}.   
 \end{equation}
 
-
 This embedding stage transforms the purely geometric scalar inputs \(\hat{s}_{ij}\) into
 learned, species-dependent representations, with rows aligned exactly to the rows of
-\(\hat{R}_i\).
+\(\hat{R}^i\).
 
 % ------------------------------------------------------------
 \subsubsection{Quadratic descriptor construction}
@@ -1634,32 +1465,28 @@ learned, species-dependent representations, with rows aligned exactly to the row
 The DeepPot-SE descriptor is obtained by combining the geometric and embedding matrices into
 a quadratic tensor:
 \begin{equation}
-    D_i
+    D^i
     =
     \frac{1}{(N_c^{\mathrm{(total)}})^2}
     \,
-    \bigl(G_i^\mathsf{T}\hat{R}_i\bigr)
-    \bigl(\hat{R}_i^\mathsf{T} G_i^{\mathrm{trunc}}\bigr).
+    \bigl((G^i)^\mathsf{T}\hat{R}^i\bigr)
+    \bigl((\hat{R}^i)^\mathsf{T} G^{i,\mathrm{trunc}}\bigr).
 \end{equation}
-
-
 
 The intermediate products have the following shapes:
 \[
 \begin{aligned}
-G_i^\mathsf{T}\hat{R}_i
+(G^i)^\mathsf{T}\hat{R}^i
 &\in \mathbb{R}^{M \times 4},\\[4pt]
-\hat{R}_i^\mathsf{T}G_i^{\mathrm{trunc}}
+(\hat{R}^i)^\mathsf{T} G^{i,\mathrm{trunc}}
 &\in \mathbb{R}^{4 \times M'},\\[4pt]
-D_i &\in \mathbb{R}^{M \times M'}.
+D^i &\in \mathbb{R}^{M \times M'}.
 \end{aligned}
-% \tag{4.9}
 \]
 
 DeepMD-v2 flattens this matrix in row-major order to obtain the final descriptor vector:
 \[
-\mathbf{D}_i \in \mathbb{R}^{M M'}.
-% \tag{4.10}
+\mathbf{D}^i \in \mathbb{R}^{M M'}.
 \]
 
 This vector is the complete learned representation of the neighbourhood of atom \(i\),
@@ -1672,12 +1499,12 @@ The descriptor pipeline implemented in HALMD reproduces the DeepMD-v2 formulatio
 modification. In particular:
 \begin{itemize}
     \item the neighbour axis matches the species-resolved capacities \(N_c^{(b)}\),
-    \item the geometric matrix \(\hat{R}_i\) implements all preprocessing steps required by
+    \item the geometric matrix \(\hat{R}^i\) implements all preprocessing steps required by
           DeepMD-v2,
-    \item the embedding matrix \(G_i\) is produced by the full set of species-pair networks
+    \item the embedding matrix \(G^i\) is produced by the full set of species-pair networks
           \(N_{\theta}^{(a,b)}\),
-    \item the quadratic descriptor \(D_i\) and its scaling follow the DeepMD-v2 definition,
-    \item the final descriptor vector \(\mathbf{D}_i\) matches TensorFlow output to
+    \item the quadratic descriptor \(D^i\) and its scaling follow the DeepMD-v2 definition,
+    \item the final descriptor vector \(\mathbf{D}^i\) matches TensorFlow output to
           floating-point precision.
 \end{itemize}
 
@@ -1690,11 +1517,11 @@ high-performance DeepMD-v2 inference inside HALMD.
 
 In the deep potential formalism, the total potential energy of a system of
 \(N\) atoms is written as a sum of atomic contributions (Eq.~\eqref{eq:energy_decomp}),
-where the atomic energy \(E_i\) is obtained by evaluating a \emph{species-dependent}
-fitting neural network on the descriptor vector \(\mathbf{D}_i\).
+where the atomic energy \(E^i\) is obtained by evaluating a \emph{species-dependent}
+fitting neural network on the descriptor matrix \(\mathbf{D}^i\).
 For an atom of species \(s_i\), the energy is computed as
 \begin{equation}
-    E_i = \mathrm{NN}_{s_i}(\mathbf{D}_i),
+    E^i = \mathrm{NN}_{s_i}(\mathbf{D}^i),
 \end{equation}
 where \(\mathrm{NN}_{s_i}\) denotes the DeepMD-v2 fitting network associated with
 species \(s_i\).  
@@ -1711,9 +1538,9 @@ It successfully reproduced DeepMD energies for monoatomic systems but lacked the
 components required for DeepMD-v2 multi-species inference:
 \begin{itemize}
     \item only one fitting network for all atoms,
-    \item no integration with multi-species descriptors (\(\hat{R}\), \(G\), \(D\)),
+    \item no integration with multi-species descriptors (\(\hat{R}^i\), \(G^i\), \(D^i\)),
     \item no per-species energy shift (\texttt{bias\_atom\_e}),
-    \item no mechanism for mapping descriptor vectors to the appropriate network.
+    \item no mechanism for mapping descriptor matrices to the appropriate network.
 \end{itemize}
 
 Therefore, multi-component DeepMD-v2 models could not be evaluated within HALMD.
@@ -1741,7 +1568,7 @@ HALMD reconstructs the complete set
 \]
 and evaluates the appropriate network according to
 \[
-E_i = \mathrm{NN}_{s_i}(\mathbf{D}_i).
+E^i = \mathrm{NN}_{s_i}(\mathbf{D}^i).
 \]
 
 The names of the corresponding TensorFlow nodes make the species mapping explicit:
@@ -1767,30 +1594,30 @@ DeepMD-v2 optionally includes constant energy offsets for each species, stored u
 \]
 HALMD extracts these tensors and evaluates
 \begin{equation}
-    E_i = \mathrm{NN}_{s_i}(\mathbf{D}_i) + b_{s_i}.
+    E^i = \mathrm{NN}_{s_i}(\mathbf{D}^i) + b_{s_i}.
 \end{equation}
 This ensures that the final energy scale matches the one used during DeepMD model training.
 
 % ------------------------------------------------------------
-\subsubsection{Integration with the multi-Species descriptor pipeline}
+\subsubsection{Integration with the multi-species descriptor pipeline}
 
-The descriptor vector \(\mathbf{D}_i\) supplied to the fitting network has the exact structure
+The descriptor matrix \(\mathbf{D}^i\) supplied to the fitting network has the exact structure
 expected by the DeepMD-v2 TensorFlow implementation.  
 Its construction incorporates:
 \begin{itemize}
     \item the normalized geometric matrix  
-    \(\hat{R}_i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}\),
+    \(\hat{R}^i \in \mathbb{R}^{N_c^{\mathrm{(total)}} \times 4}\),
     \item neighbour-slot ordering based on the model's \texttt{sel} vector,
     \item embedding vectors from species-pair networks  
           \(N^{(a,b)}_\theta\!\left(\hat{s}_{ij}\right)\),
     \item truncation to the first \(M'\) embedding channels,
     \item the quadratic descriptor construction  
-          \(D_i \in \mathbb{R}^{M \times M'}\),
+          \(D^i \in \mathbb{R}^{M \times M'}\),
     \item flattening into  
-          \(\mathbf{D}_i \in \mathbb{R}^{MM'}\).
+          \(\mathbf{D}^i \in \mathbb{R}^{MM'}\).
 \end{itemize}
 
-The ordering and dimensionality of \(\mathbf{D}_i\) must match the structure expected by
+The ordering and dimensionality of \(\mathbf{D}^i\) must match the structure expected by
 the fitting networks defined in  
 \texttt{layer\_\*\_type\_a/*} and \texttt{final\_layer\_type\_a/*}.
 The revised HALMD implementation enforces this consistency.
@@ -1814,18 +1641,15 @@ Both total energies and per-atom energies match DeepMD’s TensorFlow-based outp
 
 HALMD now evaluates the energy of each atom using the DeepMD-v2 expression
 \begin{equation}
-    E_i = \mathrm{NN}_{s_i}(\mathbf{D}_i) + b_{s_i},
+    E^i = \mathrm{NN}_{s_i}(\mathbf{D}^i) + b_{s_i},
 \end{equation}
 and accumulates the total energy as
 \begin{equation}
-    E_{\mathrm{tot}} = \sum_{i=1}^{N} E_i.
+    E_{\mathrm{tot}} = \sum_{i=1}^{N} E^i.
 \end{equation}
 
 This formulation is bitwise compatible with the DeepMD-v2 computational graph and is suitable
 for high-performance molecular dynamics simulations of multi-species systems within HALMD.
-
-\newpage
-
 
 \section{Force computation}
 \label{sec:forces}
@@ -1895,7 +1719,7 @@ $N_\theta^{(a,b)}$, each of which maps a single scalar input $\hat{s}_{ij}$ to
 an $M$-dimensional output.  
 HALMD therefore evaluates both the value
 \[
-G_{ij}, \qquad \frac{\partial G_{ij}}{\partial \hat{s}_{ij}}
+G^i_{j}, \qquad \frac{\partial G^i_{j}}{\partial \hat{s}_{ij}}
 \]
 using forward-mode AD provided by Boost.Autodiff \cite{falcou2023boostautodiff}.
 
@@ -1924,7 +1748,7 @@ Reverse-mode AD is most efficient when:
 
 This matches the structure of the \emph{fitting network}:
 \[
-E_i = \mathrm{NN}_{s_i}(\mathbf{D}_i),
+E_i = \mathrm{NN}_{s_i}(\mathbf{D}^i),
 \]
 where the input dimension $\dim(\mathbf{D}_i) = MM'$ may be several hundred.
 In such a setting, reverse-mode AD would greatly reduce computational cost, as
@@ -1959,24 +1783,27 @@ and the assembly of the total force.
 \label{sec:R_derivative}
 
 To compute forces, we require the derivative of each row of the geometry
-matrix \(R\) with respect to the coordinates of the central atom \(i\).
+matrix $R^{(i)}$ with respect to the coordinates of the central atom $i$.
 Each row depends on the neighbour displacement defined in
 Eq.~\eqref{eq:relative_disp}; we write
-\(\mathbf{r}_{ij} = (d_x, d_y, d_z)\) and \(r_{ij} = \lVert \mathbf{r}_{ij} \rVert\),
+$\mathbf{r}_{ij} = (d_x, d_y, d_z)$ and $r_{ij} = \lVert \mathbf{r}_{ij} \rVert$,
 and on the radial function
 \[
 s(r_{ij})
 \]
 defined in Section~\ref{sec:R_matrix_construction}.
 
-We now derive all components of \(\partial R_{ij} / \partial \mathbf{r}_i\)
+We now derive all components of
+\[
+\frac{\partial R^{(i)}_{j\alpha}}{\partial \mathbf r_i}
+\]
 using only the multivariate chain rule.
 
 % -------------------------------------------------------
 \subsubsection{Step 1: Rewrite the Components of \texorpdfstring{$R$}{R}}
 
-For neighbour \(j\), we use the geometry row in Eq.~\eqref{eq:raw_R_row} with
-the switched inverse distance \(s(r_{ij})\) replaced by \(\tilde{s}_{ij}\).
+For neighbour $j$, we use the geometry row in Eq.~\eqref{eq:raw_R_row} with
+the switched inverse distance $s(r_{ij})$ replaced by $\tilde{s}_{ij}$.
 
 We denote the three directional components compactly as
 \[
@@ -2025,8 +1852,7 @@ and combining these yields
 \]
 
 % -------------------------------------------------------
-
-% \subsubsection{Step 3: Derivative of the Switching Function}
+\subsubsection{Step 3: Derivative of the Switching Function}
 
 From Section~\ref{sec:R_matrix_construction}, the radial switching function is
 \begin{equation}
@@ -2040,7 +1866,7 @@ s(r) =
 x = \dfrac{r - r_s}{r_c - r_s}.
 \end{equation}
 
-For \(r_s \le r < r_c\), define
+For $r_s \le r < r_c$, define
 \[
 P(x) = x^3(-6x^2 + 15x - 10) + 1.
 \]
@@ -2051,7 +1877,7 @@ Then
 \frac{dx}{dr} = \frac{1}{r_c - r_s}.
 \]
 
-The derivative of \(s(r)\) is therefore
+The derivative of $s(r)$ is therefore
 \begin{equation}
 \frac{ds}{dr} =
 \begin{cases}
@@ -2062,16 +1888,16 @@ The derivative of \(s(r)\) is therefore
 \end{cases}
 \end{equation}
 
-
+% -------------------------------------------------------
 \subsubsection{Step 4: Derivative of the Radial Component}
 
 The first component of the geometry row is
 \[
-R_{ij,0} = s(r_{ij}).
+R^{(i)}_{j0} = s(r_{ij}).
 \]
 Applying the chain rule,
 \[
-\frac{\partial R_{ij,0}}{\partial \mathbf r_i}
+\frac{\partial R^{(i)}_{j0}}{\partial \mathbf r_i}
 =
 \frac{ds}{dr}(r_{ij})
 \frac{\partial r_{ij}}{\partial \mathbf r_i}
@@ -2079,18 +1905,18 @@ Applying the chain rule,
 -\,\frac{ds}{dr}(r_{ij})\,\hat{\mathbf r}_{ij}.
 \]
 
-
+% -------------------------------------------------------
 \subsubsection{Step 5: Derivative of the Directional Components}
 
 Each directional component is
 \[
-R_{ij,\alpha} = s(r_{ij})\,\frac{d_\alpha}{r_{ij}},
+R^{(i)}_{j\alpha} = s(r_{ij})\,\frac{d_\alpha}{r_{ij}},
 \qquad \alpha \in \{x,y,z\}.
 \]
 
 Using the product rule and the results of the previous steps,
 \[
-\frac{\partial R_{ij,\alpha}}{\partial \mathbf r_i}
+\frac{\partial R^{(i)}_{j\alpha}}{\partial \mathbf r_i}
 =
 -\,\frac{ds}{dr}(r_{ij})\frac{d_\alpha}{r_{ij}}\,\hat{\mathbf r}_{ij}
 - s(r_{ij})\,\frac{1}{r_{ij}}\mathbf e_\alpha
@@ -2098,40 +1924,40 @@ Using the product rule and the results of the previous steps,
 \]
 
 This formula provides the complete derivative of the directional components
-\(R_{ij,1}, R_{ij,2}, R_{ij,3}\).
+$R^{(i)}_{j1}, R^{(i)}_{j2}, R^{(i)}_{j3}$.
 
-
-
+% -------------------------------------------------------
 \subsubsection{Step 6: Normalized Geometry Derivative}
-Note that the raw radial feature $s(r_{ij}) = R_{ij,0}$ becomes the normalized
-quantity $\hat s_{ij} := \hat R_{ij,0}$ after feature normalization, and it is
+
+Note that the raw radial feature $s(r_{ij}) = R^{(i)}_{j0}$ becomes the normalized
+quantity $\hat s_{ij} := \hat R^{(i)}_{j0}$ after feature normalization, and it is
 this normalized scalar $\hat s_{ij}$ that is used as the input to the embedding
 network.
 
+DeepMD-v2 uses component-wise normalization:
 \[
-\hat{R}_{ij,\alpha}
+\hat R^{(i)}_{j\alpha}
 =
 \frac{
-    R_{ij,\alpha} - (t_{\mathrm{avg}})_\alpha
+    R^{(i)}_{j\alpha} - (t_{\mathrm{avg}})_\alpha
 }{
     (t_{\mathrm{std}})_\alpha
 }.
 \]
 Since the normalization parameters are constants,
 \begin{equation}
-   \frac{\partial \hat{R}_{ij,\alpha}}{\partial \mathbf{r}_i}
+   \frac{\partial \hat R^{(i)}_{j\alpha}}{\partial \mathbf{r}_i}
     =
     \frac{1}{(t_{\mathrm{std}})_\alpha}
-    \frac{\partial R_{ij,\alpha}}{\partial \mathbf{r}_i}, 
+    \frac{\partial R^{(i)}_{j\alpha}}{\partial \mathbf{r}_i}. 
 \end{equation}
 
-
-
+% -------------------------------------------------------
 \subsubsection{Step 7: Derivative with Respect to the Neighbour Coordinate \texorpdfstring{$\mathbf{r}_j$}{rj}}
 
 All formulas above were derived for the derivative with respect to the
-\emph{central} atom \(i\).  
-The derivative with respect to the \emph{neighbour} atom \(j\) is obtained
+\emph{central} atom $i$.  
+The derivative with respect to the \emph{neighbour} atom $j$ is obtained
 immediately from the identity
 \[
 \mathbf{r}_{ij} = \mathbf{r}_j - \mathbf{r}_i,
@@ -2147,7 +1973,7 @@ which implies
 = -\,\mathbf{e}_\alpha.
 \]
 
-Using the chain rule for the distance \(r_{ij}\),
+Using the chain rule for the distance $r_{ij}$,
 \begin{equation}
     \frac{\partial r_{ij}}{\partial \mathbf{r}_j}
     =
@@ -2162,26 +1988,26 @@ Using the chain rule for the distance \(r_{ij}\),
 \end{equation}
 
 which is exactly the opposite of the central-atom derivative
-\(\partial r_{ij}/\partial \mathbf{r}_i = -\hat{\mathbf{r}}_{ij}\).
+$\partial r_{ij}/\partial \mathbf{r}_i = -\hat{\mathbf{r}}_{ij}$.
 
 \vspace{1em}
 
 \noindent\textit{As a consequence, every derivative with respect to}
-\(\mathbf{r}_j\)
+$\mathbf{r}_j$
 \textit{is simply the negative of the corresponding derivative with respect to}
-\(\mathbf{r}_i\):
+$\mathbf{r}_i$:
 \[
-\frac{\partial R_{ij,\alpha}}{\partial \mathbf{r}_j}
+\frac{\partial R^{(i)}_{j\alpha}}{\partial \mathbf{r}_j}
 =
 -\,
-\frac{\partial R_{ij,\alpha}}{\partial \mathbf{r}_i},
+\frac{\partial R^{(i)}_{j\alpha}}{\partial \mathbf{r}_i},
 \qquad
 \alpha = 0,1,2,3.
 \]
 
-This follows because every dependence of \(R_{ij}\) on atomic positions appears
-only through the displacement vector \(\mathbf{r}_{ij}\), and exchanging the
-differentiation variable from \(\mathbf{r}_i\) to \(\mathbf{r}_j\) reverses the
+This follows because every dependence of $R^{(i)}_{j\alpha}$ on atomic positions
+appears only through the displacement vector $\mathbf{r}_{ij}$, and exchanging the
+differentiation variable from $\mathbf{r}_i$ to $\mathbf{r}_j$ reverses the
 sign of every chain-rule factor:
 \[
 \frac{\partial}{\partial \mathbf{r}_j}
@@ -2200,49 +2026,49 @@ neighbour-atom derivative requires no further computation.
 \subsection{Derivative of the Embedding Matrix}
 \label{sec:G_derivative}
 
-In DeepPot--SE, each row of the embedding matrix
+For each central atom $i$, the embedding matrix
 \[
-G \in \mathbb{R}^{N_c \times M}
+G^{(i)} \in \mathbb{R}^{N_c \times M}
 \]
-is produced by an embedding neural network that depends on the local geometry
-only through the scalar input
+is produced by species-dependent embedding networks applied to the local
+environment of atom $i$.  
+Each row depends on the local geometry only through the scalar input
 \[
-\hat s_{ij} := \hat R_{ij,0},
+\hat s_{ij} := \hat R^{(i)}_{j0},
 \]
-the first component of the normalized geometric matrix.
-Hence, for each neighbour \(j\),
+the first (radial) component of the normalized geometric matrix.
+
+Hence, for each neighbour $j$,
 \[
-G_{j:} = \mathrm{N}^{(a,b)}_{\theta}(\hat s_{ij}).
+G^{(i)}_{j:} = \mathrm{N}^{(a,b)}_{\theta}\!\left(\hat s_{ij}\right).
 \]
 
-The derivative of \(G\) with respect to the geometry therefore reduces to the
+The derivative of $G^{(i)}$ with respect to the geometry therefore reduces to the
 one–dimensional derivative of the embedding network with respect to its scalar
 input:
 \begin{equation}
 \boxed{
-\frac{\partial G_{jp}}{\partial \hat R_{ij,0}}
+\frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j0}}
 =
-\frac{d\,\mathrm{N}^{(a,b)}_\theta{}}{d \hat s}\bigl(\hat s_{ij}\bigr),
+\frac{d\,\mathrm{N}^{(a,b)}_{\theta,p}}{d \hat s}\!\left(\hat s_{ij}\right),
 \qquad
 p = 1,\dots,M.
 }
 \end{equation}
 
-% N^{(a,b)}_{\theta}
-
-All other components of \(\hat R\) do not influence \(G\):
+All other components of $\hat R^{(i)}$ do not influence $G^{(i)}$:
 \[
-\frac{\partial G_{jp}}{\partial \hat R_{j\alpha}} = 0,
-\alpha \neq 0.
+\frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j\alpha}} = 0,
+\qquad \alpha \neq 0.
 \]
 
 The vector
 \[
-\mathbf q_j :=
+\mathbf q^{(i)}_j :=
 \left(
-\frac{\partial G_{j1}}{\partial \hat R_{ij,0}},
+\frac{\partial G^{(i)}_{j1}}{\partial \hat R^{(i)}_{j0}},
 \ldots,
-\frac{\partial G_{jM}}{\partial \hat R_{ij,0}}
+\frac{\partial G^{(i)}_{jM}}{\partial \hat R^{(i)}_{j0}}
 \right)
 \in \mathbb{R}^M
 \]
@@ -2253,63 +2079,72 @@ as a known quantity in the subsequent descriptor and force derivations.
 \subsection{Descriptor Derivative}
 \label{sec:descriptor_derivative}
 
-The DeepPot-SE descriptor is constructed from the interaction between the
-embedding matrix \(G \in \mathbb{R}^{N_c \times M}\) and the normalized geometric
-matrix \(\hat{R} \in \mathbb{R}^{N_c \times 4}\).  
+For each central atom $i$, the DeepPot-SE descriptor is constructed from the
+interaction between the embedding matrix
+$G^{(i)} \in \mathbb{R}^{N_c \times M}$
+and the normalized geometric matrix
+$\hat R^{(i)} \in \mathbb{R}^{N_c \times 4}$.
 Their contraction enters through the intermediate matrix
 \[
-C = \frac{1}{N_c} G^{\mathsf T}\, \hat{R} 
-\qquad 
-C \in \mathbb{R}^{M \times 4}.
+C^{(i)} = \frac{1}{N_c} \big(G^{(i)}\big)^{\mathsf T} \hat R^{(i)},
+\qquad
+C^{(i)} \in \mathbb{R}^{M \times 4}.
 \]
-The matrix \(C\) aggregates all geometry–embedding interactions and forms the
+The matrix $C^{(i)}$ aggregates all geometry–embedding interactions and forms the
 foundation of the quadratic descriptor used in DeepMD.
 
 \medskip
 
 The full (extended) descriptor is defined as the Gram matrix
 \begin{equation}
-    D_{\mathrm{ext}}
+    D^{(i)}_{\mathrm{ext}}
     =
-    C C^{\mathsf T}
+    C^{(i)} \big(C^{(i)}\big)^{\mathsf T},
     \qquad
-    D_{\mathrm{ext}} \in \mathbb{R}^{M \times M}. 
+    D^{(i)}_{\mathrm{ext}} \in \mathbb{R}^{M \times M}.
 \end{equation}
 
 This construction ensures permutation invariance of neighbours and couples all
 embedding channels quadratically.
 
 However, the actual DeepPot-SE descriptor used by the fitting network consists
-only of the first \(M'\) columns of \(D_{\mathrm{ext}}\):
+only of the first $M'$ columns of $D^{(i)}_{\mathrm{ext}}$:
 \begin{equation}
-    D = D_{\mathrm{ext}}[:,\,1\!:\!M'], 
+    D^{(i)} = D^{(i)}_{\mathrm{ext}}[:,\,1\!:\!M'],
     \qquad
-    D \in \mathbb{R}^{M \times M'}.
+    D^{(i)} \in \mathbb{R}^{M \times M'}.
 \end{equation}
 
 Thus, the descriptor truncation is implemented by a simple column restriction.
 
-\subsubsection*{Derivative with respect to the intermediate matrix \(C\)}
+\subsubsection*{Derivative with respect to the intermediate matrix $C^{(i)}$}
 
 From the component definition
 \[
-(D_{\mathrm{ext}})_{mn} = \sum_{\alpha=1}^{4} C_{m\alpha} C_{n\alpha},
-\]
-the derivative of \(D_{\mathrm{ext}}\) with respect to one entry \(C_{p\beta}\)
-follows by direct application of the product rule:
-\[
-\frac{\partial (D_{\mathrm{ext}})_{mn}}{\partial C_{p\beta}}
+\big(D^{(i)}_{\mathrm{ext}}\big)_{mn}
 =
-\delta_{mp} C_{n\beta} + \delta_{np} C_{m\beta},
+\sum_{\alpha=1}^{4} C^{(i)}_{m\alpha} C^{(i)}_{n\alpha},
 \]
-where \(\delta_{ij}\) denotes the Kronecker delta.
+the derivative of $D^{(i)}_{\mathrm{ext}}$ with respect to one entry
+$C^{(i)}_{p\beta}$ follows by direct application of the product rule:
+\[
+\frac{\partial \big(D^{(i)}_{\mathrm{ext}}\big)_{mn}}
+     {\partial C^{(i)}_{p\beta}}
+=
+\delta_{mp} C^{(i)}_{n\beta}
++
+\delta_{np} C^{(i)}_{m\beta},
+\]
+where $\delta_{ij}$ denotes the Kronecker delta.
 
-Since the network descriptor \(D\) retains only the first \(M'\) columns of
-\(D_{\mathrm{ext}}\), the corresponding derivative is
+Since the network descriptor $D^{(i)}$ retains only the first $M'$ columns of
+$D^{(i)}_{\mathrm{ext}}$, the corresponding derivative is
 \[
-\frac{\partial D_{mn}}{\partial C_{p\beta}}
+\frac{\partial D^{(i)}_{mn}}{\partial C^{(i)}_{p\beta}}
 =
-\delta_{mp} C_{n\beta} + \delta_{np} C_{m\beta},
+\delta_{mp} C^{(i)}_{n\beta}
++
+\delta_{np} C^{(i)}_{m\beta},
 \qquad n \le M'.
 \]
 
@@ -2317,112 +2152,87 @@ Since the network descriptor \(D\) retains only the first \(M'\) columns of
 
 The intermediate matrix
 \[
-C = \frac{1}{N_c} G^{\mathsf T}\hat R
+C^{(i)} = \frac{1}{N_c} \big(G^{(i)}\big)^{\mathsf T} \hat R^{(i)}
 \]
-depends on \(\hat R\) in two distinct ways:  
-(i) explicitly through the right factor \(\hat R\), and  
-(ii) implicitly through the embedding matrix \(G\), since each row \(G_{j:}\) is
-produced by the embedding network from the scalar input
-\(\hat s_{ij} := \hat R_{ij,0}\) of the normalized geometry.
+depends on $\hat R^{(i)}$ in two distinct ways:
+(i) explicitly through the right factor $\hat R^{(i)}$, and
+(ii) implicitly through the embedding matrix $G^{(i)}$, since each row
+$G^{(i)}_{j:}$ is produced by the embedding network from the scalar input
+\[
+\hat s_{ij} := \hat R^{(i)}_{j0}.
+\]
 
-Accordingly, the derivative of \(C\) with respect to \(\hat R\) must be
+Accordingly, the derivative of $C^{(i)}$ with respect to $\hat R^{(i)}$ must be
 decomposed into an explicit and an implicit contribution,
 \[
-\frac{\partial C}{\partial \hat R}
+\frac{\partial C^{(i)}}{\partial \hat R^{(i)}}
 =
-\left.\frac{\partial C}{\partial \hat R}\right|_{G}
+\left.\frac{\partial C^{(i)}}{\partial \hat R^{(i)}}\right|_{G}
 +
-\left.\frac{\partial C}{\partial G}\right|_{\hat R}\,
-\frac{\partial G}{\partial \hat R}.
+\left.\frac{\partial C^{(i)}}{\partial G^{(i)}}\right|_{\hat R}
+\frac{\partial G^{(i)}}{\partial \hat R^{(i)}}.
 \]
 
 In component form, using
 \[
-C_{p\beta}=\frac{1}{N_c}\sum_{j=1}^{N_c} G_{jp}\hat R_{j\beta},
+C^{(i)}_{p\beta} = \frac{1}{N_c} \sum_{j=1}^{N_c} G^{(i)}_{jp} \hat R^{(i)}_{j\beta},
 \]
-the explicit contribution (holding \(G\) fixed) is
+the explicit contribution is
 \[
-\left.\frac{\partial C_{p\beta}}{\partial \hat R_{j\alpha}}\right|_{G}
+\left.\frac{\partial C^{(i)}_{p\beta}}{\partial \hat R^{(i)}_{j\alpha}}\right|_{G}
 =
-\frac{1}{N_c}\,G_{jp}\,\delta_{\beta\alpha}.
+\frac{1}{N_c} G^{(i)}_{jp} \delta_{\beta\alpha}.
 \]
 
-Since the embedding matrix \(G\) depends on \(\hat R\) only through the scalar
-input \(\hat R_{ij,0}\), the implicit contribution simplifies to
+Since the embedding matrix $G^{(i)}$ depends on $\hat R^{(i)}$ only through
+$\hat R^{(i)}_{j0}$, the implicit contribution is
 \[
-\frac{\partial G_{\ell p}}{\partial \hat R_{j\alpha}}
+\frac{\partial G^{(i)}_{\ell p}}{\partial \hat R^{(i)}_{j\alpha}}
 =
-\delta_{\ell j}\,\delta_{0\alpha}\,
-\frac{\partial G_{jp}}{\partial \hat R_{ij,0}},
+\delta_{\ell j}\,\delta_{0\alpha}
+\frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j0}}.
 \]
-where \(\partial G_{jp}/\partial \hat R_{ij,0}\) is obtained by differentiation of
-the embedding network with respect to its scalar input.
 
-Substituting this relation yields the full derivative
+Substituting yields the full derivative
 \[
 \boxed{
-\frac{\partial C_{p\beta}}{\partial \hat R_{j\alpha}}
+\frac{\partial C^{(i)}_{p\beta}}{\partial \hat R^{(i)}_{j\alpha}}
 =
-\frac{1}{N_c}\,G_{jp}\,\delta_{\beta\alpha}
+\frac{1}{N_c} G^{(i)}_{jp} \delta_{\beta\alpha}
 +
-\frac{1}{N_c}\,\delta_{0\alpha}\,
-\frac{\partial G_{jp}}{\partial \hat R_{ij,0}}\,
-\hat R_{j\beta}.
+\frac{1}{N_c} \delta_{0\alpha}
+\frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j0}}
+\hat R^{(i)}_{j\beta}.
 }
 \]
 
 \medskip
-\noindent\textbf{Descriptor derivative with respect to \(\hat R\).}
-Since
-\[
-(D_{\mathrm{ext}})_{mn}=\sum_{\beta=1}^{4} C_{m\beta}C_{n\beta},
-\qquad
-D_{mn}=(D_{\mathrm{ext}})_{mn},\quad n\le M',
-\]
-the chain rule gives, for \(n\le M'\),
-\[
-\frac{\partial D_{mn}}{\partial \hat R_{j\alpha}}
-=
-\sum_{\beta=1}^{4}
-\left(
-\frac{\partial C_{m\beta}}{\partial \hat R_{j\alpha}}\,C_{n\beta}
-+
-C_{m\beta}\,\frac{\partial C_{n\beta}}{\partial \hat R_{j\alpha}}
-\right).
-\]
-
-Using the previously derived expression
-\[
-\frac{\partial C_{p\beta}}{\partial \hat R_{j\alpha}}
-=
-\frac{1}{N_c}\,G_{jp}\,\delta_{\beta\alpha}
-+
-\frac{1}{N_c}\,\delta_{0\alpha}\,
-\frac{\partial G_{jp}}{\partial \hat R_{ij,0}}\,
-\hat R_{j\beta},
-\]
-we obtain
+\noindent\textbf{Descriptor derivative with respect to $\hat R^{(i)}$.}
+For $n \le M'$,
 \[
 \boxed{
-\frac{\partial D_{mn}}{\partial \hat R_{j\alpha}}
+\frac{\partial D^{(i)}_{mn}}{\partial \hat R^{(i)}_{j\alpha}}
 =
-\frac{1}{N_c}\left(G_{jm}C_{n\alpha}+G_{jn}C_{m\alpha}\right)
+\frac{1}{N_c}
+\big( G^{(i)}_{jm} C^{(i)}_{n\alpha} + G^{(i)}_{jn} C^{(i)}_{m\alpha} \big)
 +
-\frac{1}{N_c}\,\delta_{0\alpha}
+\frac{1}{N_c} \delta_{0\alpha}
 \left(
-\frac{\partial G_{jm}}{\partial \hat R_{ij,0}}\sum_{\beta=1}^{4}\hat R_{j\beta}C_{n\beta}
+\frac{\partial G^{(i)}_{jm}}{\partial \hat R^{(i)}_{j0}}
+\sum_{\beta} \hat R^{(i)}_{j\beta} C^{(i)}_{n\beta}
 +
-\frac{\partial G_{jn}}{\partial \hat R_{ij,0}}\sum_{\beta=1}^{4}\hat R_{j\beta}C_{m\beta}
-\right),
-\qquad n\le M'.
+\frac{\partial G^{(i)}_{jn}}{\partial \hat R^{(i)}_{j0}}
+\sum_{\beta} \hat R^{(i)}_{j\beta} C^{(i)}_{m\beta}
+\right).
 }
 \]
 
-
 This expression shows explicitly that only the radial component
-\(\hat R_{ij,0}\) influences the descriptor through the embedding network, while
-the remaining geometric components affect \(C\) only through the direct linear
-term.
+$\hat R^{(i)}_{j0}$ influences the descriptor through the embedding network,
+while the remaining geometric components affect $C^{(i)}$ only through the
+direct linear term.
+
+
 
 
 \subsection{Fitting Network Derivative}
@@ -2432,30 +2242,32 @@ The final stage of the DeepMD--v2 force pipeline is the differentiation of the
 species-dependent fitting network that maps the descriptor of atom~$i$ to its atomic
 energy,
 \[
-E_i = \mathrm{NN}_{s_i}(\mathbf{D}_i),
+E^i = \mathrm{NN}_{s_i}\!\bigl(\mathrm{vec}(D^i)\bigr),
 \]
 where $s_i$ denotes the species of atom~$i$ and
-$D_i \in \mathbb{R}^{M \times M'}$ is the descriptor matrix constructed in
-Section~\ref{sec:descriptor_computation}.  
-To assemble forces, we require the gradient (Jacobian row)
 \[
-\frac{\partial E_i}{\partial D_{i,\alpha}},
-\qquad
-\alpha = 1,\dotsc,M',
+D^i \in \mathbb{R}^{M \times M'}
 \]
-which measures the sensitivity of the atomic energy with respect to each descriptor
-component.
+is the (truncated) descriptor matrix constructed in
+Section~\ref{sec:descriptor_computation}.  
+The fitting network consumes the flattened descriptor
+$\mathrm{vec}(D^i) \in \mathbb{R}^{MM'}$.
+
+To assemble forces, we require the Jacobian of $E^i$ with respect to the full
+descriptor matrix:
+\begin{equation}
+\boxed{
+J^i
+:=
+\frac{\partial E^i}{\partial D^i}
+\in \mathbb{R}^{M \times M'},
+\qquad
+(J^i)_{mn} = \frac{\partial E^i}{\partial D^i_{mn}}.
+}
+\end{equation}
 
 In the frozen TensorFlow graph, the fitting network for species $s$ is encoded by
 nodes such as
-% \[
-% \texttt{layer\_0\_type\_s/matrix},\quad
-% \texttt{layer\_0\_type\_s/bias},\quad
-% \dots,\quad
-% \texttt{final\_layer\_type\_s/matrix},\quad
-% \texttt{final\_layer\_type\_s/bias},
-% \]
-
 \[
 \begin{aligned}
 \texttt{layer\_0\_type\_s/matrix},\quad
@@ -2465,7 +2277,6 @@ nodes such as
 \texttt{final\_layer\_type\_s/bias}.
 \end{aligned}
 \]
-
 together with optional residual-scaling nodes \texttt{idt} and the per-species energy
 offset \texttt{bias\_atom\_e}.  
 These parameters are extracted as described in
@@ -2479,50 +2290,54 @@ nonlinear activation functions, optional residual connections, and timestep-rela
 scalings.  
 The resulting mapping
 \[
-\mathbf{D}_i \longmapsto E_i
+\mathrm{vec}(D^i) \longmapsto E^i
 \]
 is highly nonlinear, and an explicit hand-derived expression for
-$\partial E_i / \partial D_{i,\alpha}$ would be lengthy and error-prone.
+$\partial E^i / \partial D^i_{mn}$ would be lengthy and error-prone.
 
 Instead, HALMD evaluates these derivatives using \emph{forward-mode automatic
 differentiation} (AD) provided by Boost.Autodiff~\cite{falcou2023boostautodiff}.  
 Conceptually, forward-mode AD augments each input component with an ``infinitesimal''
 tangent and propagates both value and derivative through all primitive operations.
 
-For the fitting network, this proceeds as follows for each descriptor component
-$\alpha$:
+For the fitting network, this proceeds as follows for each flattened descriptor
+index $\alpha \in \{1,\dotsc,MM'\}$:
 
 \begin{enumerate}
-    \item The descriptor matrix $D_i$ is flattened and promoted to an array of
-          autodiff variables, where the $\alpha$-th component is seeded with unit
-          tangent and all others with zero tangent.
+    \item The descriptor matrix $D^i$ is flattened to $\mathrm{vec}(D^i)$ and
+          promoted to an array of autodiff variables. The $\alpha$-th component is
+          seeded with unit tangent and all others with zero tangent.
 
     \item This augmented input is propagated forward through all layers of the
           network, using the same weights, biases, activation functions, and
           residual connections as in the standard inference.
 
-    \item At the output, the autodiff scalar representing $E_i$ contains both the
-          energy value and its derivative with respect to $D_{i,\alpha}$.  The
-          derivative part is read out as
-          $\partial E_i / \partial D_{i,\alpha}$.
+    \item At the output, the autodiff scalar representing $E^i$ contains both the
+          energy value and its derivative with respect to
+          $\mathrm{vec}(D^i)_\alpha$.  
+          The derivative part is read out as
+          $\partial E^i / \partial \mathrm{vec}(D^i)_\alpha$.
 \end{enumerate}
 
-Repeating this procedure for $\alpha = 1,\dotsc,M'$ yields the full gradient
+Repeating this procedure for $\alpha = 1,\dotsc,MM'$ yields the full gradient with
+respect to the flattened descriptor,
+\[
+\frac{\partial E^i}{\partial \mathrm{vec}(D^i)} \in \mathbb{R}^{MM'}.
+\]
+Reshaping this vector back to matrix form gives the Jacobian
 \begin{equation}
-    \boxed{
-    \nabla_{\mathbf{D}_i} E_i
-    =
-    \left(
-    \frac{\partial E_i}{\partial D_{i,1}},
-    \ldots,
-    \frac{\partial E_i}{\partial D_{i,M'}}
-    \right)
-    }
+\boxed{
+J^i
+=
+\mathrm{reshape}_{M\times M'}\!\left(
+\frac{\partial E^i}{\partial \mathrm{vec}(D^i)}
+\right)
+\in \mathbb{R}^{M\times M'}.
+}
 \end{equation}
-which HALMD stores as the Jacobian row associated with atom~$i$.
 
-From an algorithmic point of view, this is equivalent to computing one
-forward pass per descriptor component, i.e.\ the cost scales linearly with $M'$.
+From an algorithmic point of view, this is equivalent to computing one forward
+pass per descriptor entry, i.e.\ the cost scales linearly with $MM'$.  
 For the descriptor sizes considered in this work, this is acceptable and greatly
 simplifies the implementation because no explicit backpropagation code is required.
 
@@ -2530,7 +2345,7 @@ simplifies the implementation because no explicit backpropagation code is requir
 
 For scalar outputs and high-dimensional inputs, \emph{reverse-mode} AD is
 theoretically more efficient than forward mode, as it computes the entire gradient
-$\nabla_{\mathbf{D}_i} E_i$ in a single backward sweep.  
+$\partial E^i / \partial \mathrm{vec}(D^i)$ in a single backward sweep.  
 This is the strategy employed by deep-learning frameworks such as
 TensorFlow~\cite{abadi2016tensorflow} and PyTorch~\cite{paszke2019pytorch}.
 
@@ -2553,27 +2368,27 @@ obtain the explicit DeepMD--v2 force expression. Starting from the energy
 decomposition in Eq.~\eqref{eq:energy_decomp}, the force on atom $k$ is
 
 \begin{equation}
-    \mathbf{F}_k
-    =
-    -\,\frac{\partial E}{\partial \mathbf{r}_k}
-    =
-    -\,\sum_{i}
-    \frac{\partial E_i}{\partial \mathbf{r}_k}.
+\mathbf{F}_k
+=
+-\,\frac{\partial E}{\partial \mathbf{r}_k}
+=
+-\,\sum_{i}
+\frac{\partial E^i}{\partial \mathbf{r}_k}.
 \end{equation}
 
 Using the chain rule along the descriptor construction pathway
 \[
 \mathbf{r}
 \;\longrightarrow\;
-\hat{R}
+\hat{R}^i
 \;\longrightarrow\;
-G
+G^i
 \;\longrightarrow\;
-C
+C^i
 \;\longrightarrow\;
-D
+D^i
 \;\longrightarrow\;
-E,
+E^i,
 \]
 we obtain
 \begin{equation}
@@ -2582,22 +2397,19 @@ we obtain
 =
 -
 \sum_i
-% \sum_{m,n \le M'}
 \sum_{m=1}^{M} \sum_{n=1}^{M'}
-J_{i,mn}
+J^i_{mn}
 \,
-\frac{\partial D_{i,mn}}{\partial \mathbf{r}_k}
+\frac{\partial D^i_{mn}}{\partial \mathbf{r}_k}
 }
 \end{equation}
 where
-% \( J_i = \partial E_i / \partial D_i \) is the Jacobian of the fitting network.
-
-where
-\[
+\begin{equation}
 \boxed{
-J_i := \frac{\partial E_i}{\partial D_i} \in \mathbb{R}^{M \times M'}
+J^i := \frac{\partial E^i}{\partial D^i} \in \mathbb{R}^{M \times M'}.
 }
-\]
+\end{equation}
+
 % ---------------------------------------------------------
 
 \subsubsection{Descriptor--level contribution}
@@ -2606,17 +2418,20 @@ From Section~\ref{sec:descriptor_derivative}, the derivative of the descriptor
 with respect to the normalized geometry is
 \begin{equation}
 \boxed{
-\frac{\partial D_{i,mn}}{\partial \hat R_{i,j\alpha}}
+\frac{\partial D^i_{mn}}{\partial \hat R^i_{j\alpha}}
 =
-\frac{1}{N_c}\left(G_{i,jm} C_{i,n\alpha} + G_{i,jn} C_{i,m\alpha}\right)
+\frac{1}{N_c}
+\left(
+G^i_{jm} C^i_{n\alpha} + G^i_{jn} C^i_{m\alpha}
+\right)
 +
 \frac{1}{N_c}\,\delta_{0\alpha}
 \left(
-\frac{\partial G_{i,jm}}{\partial \hat R_{i,j0}}
-\sum_{\beta} \hat R_{i,j\beta} C_{i,n\beta}
+\frac{\partial G^i_{jm}}{\partial \hat R^i_{j0}}
+\sum_{\beta} \hat R^i_{j\beta} C^i_{n\beta}
 +
-\frac{\partial G_{i,jn}}{\partial \hat R_{i,j0}}
-\sum_{\beta} \hat R_{i,j\beta} C_{i,m\beta}
+\frac{\partial G^i_{jn}}{\partial \hat R^i_{j0}}
+\sum_{\beta} \hat R^i_{j\beta} C^i_{m\beta}
 \right).
 }
 \end{equation}
@@ -2628,7 +2443,7 @@ with respect to the normalized geometry is
 The normalized geometry depends explicitly on the atomic coordinates, and its
 analytic derivative
 \[
-\frac{\partial \hat R_{i,j\alpha}}{\partial \mathbf r_k}
+\frac{\partial \hat R^i_{j\alpha}}{\partial \mathbf r_k}
 \]
 was derived in Section~\ref{sec:R_derivative}. This term contains the complete
 geometric information (relative displacements, inverse distances, directional
@@ -2647,25 +2462,24 @@ explicit DeepMD--v2 force:
 =
 -
 \sum_i
-\sum_{j}
-% \sum_{m,n \le M'}
+\sum_j
 \sum_{m=1}^{M} \sum_{n=1}^{M'}
-J_{i,mn}
+J^i_{mn}
 \,
-\frac{\partial D_{i,mn}}{\partial \hat R_{i,j\alpha}}
+\frac{\partial D^i_{mn}}{\partial \hat R^i_{j\alpha}}
 \,
-\frac{\partial \hat R_{i,j\alpha}}{\partial \mathbf r_k}.
+\frac{\partial \hat R^i_{j\alpha}}{\partial \mathbf r_k}.
 }
 \end{equation}
 
 This expression decomposes the force into a purely neural contribution
-(\(J_i\) and \(\partial G / \partial \hat R_{ij,0}\)) and an analytic geometric
-contribution (\(\partial \hat R / \partial \mathbf r_k\)), making the entire
+(\(J^i\) and \(\partial G^i / \partial \hat R^i_{j0}\)) and an analytic geometric
+contribution (\(\partial \hat R^i / \partial \mathbf r_k\)), making the entire
 force evaluation mathematically explicit and numerically stable.
 
 \medskip
 
-Equation~(\ref{sec:final_force_assembly}) therefore reconstructs the full
+Equation~\eqref{sec:final_force_assembly} therefore reconstructs the full
 DeepMD--v2 force pathway in HALMD using a consistent hybrid of analytic geometry
 and automatic differentiation for the neural components.
 
