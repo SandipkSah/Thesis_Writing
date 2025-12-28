@@ -193,7 +193,7 @@ Summarizing methodological descriptions
 Assistance with formula organization in the force computation section
 & ChatGPT~4.0 \\
 \hline
-Linguistic proofreading of the full manuscript
+Linguistic proof reading of the full manuscript
 & Grammarly \\
 \hline
 \end{tabular}
@@ -466,6 +466,7 @@ In recent years, machine learning techniques—particularly deep neural networks
 In the NNP framework, a neural network is trained to approximate the mapping between an atomic configuration and its corresponding total energy and atomic forces. The total potential energy of a system is commonly expressed as a sum of atomic contributions \cite{behler2007generalized}:
 \begin{equation}
     E = \sum_i E_i(\mathcal{R}_i),
+\label{eq:energy_decomp}
 \end{equation}
 
 where \(E_i\) denotes the atomic energy associated with atom \(i\), and \(\mathcal{R}_i\) represents its local environment within a cutoff radius. This decomposition ensures extensivity and locality and enables efficient scaling with system size.
@@ -504,11 +505,7 @@ A variety of neural-network-based interatomic potentials have been proposed, inc
 
 This work focuses on \textit{DeepMD version~2 kit}, the second-generation implementation of the Deep Potential framework. DeepMD-kit v2 represents a major advancement over the original DeepMD formulation~\cite{wang2018deepmd}, introducing improved descriptor smoothness, enhanced multi-species handling, and a refined software architecture that enables highly efficient GPU execution~\cite{zeng2023deepmdv2}. These features make DeepMD-kit v2 particularly suitable for modeling chemically complex systems such as binary alloys within HALMD.
 
-Deep potential molecular dynamics is a machine-learning approach that approximates interatomic interactions with near \textit{ab initio} accuracy while retaining computational efficiency comparable to classical MD. A neural network is trained on quantum-mechanical reference data (typically from DFT or AIMD) to map atomic configurations to energies and forces. The total potential energy of the system is decomposed into atomic energy contributions~\cite{wang2018deepmd, zeng2023deepmdv2}:
-\[
-E = \sum_{i} E_i(\mathcal{R}_i),
-\]
-where \(E_i\) is the atomic energy of atom \(i\), and $\mathcal{R}_i$ denotes its local environment within a cutoff radius \(r_c\). This locality assumption yields linear scaling in the number of atoms and enables efficient parallelization on GPUs.
+Deep potential molecular dynamics is a machine-learning approach that approximates interatomic interactions with near \textit{ab initio} accuracy while retaining computational efficiency comparable to classical MD. A neural network is trained on quantum-mechanical reference data (typically from DFT or AIMD) to map atomic configurations to energies and forces. The total potential energy is decomposed into atomic contributions as in Eq.~\eqref{eq:energy_decomp}, where \(E_i\) is the atomic energy of atom \(i\), and $\mathcal{R}_i$ denotes its local environment within a cutoff radius \(r_c\). This locality assumption yields linear scaling in the number of atoms and enables efficient parallelization on GPUs.
 
 A defining element of DeepMD is the use of symmetry-preserving descriptors that are invariant under translations, rotations, and permutations of atoms of the same type. DeepMD-kit v2 employs the \textit{smooth edition} (SE) descriptor family, provided in angular (\texttt{se\_e2\_a}) variants~\cite{zeng2023deepmdv2}. It is constructed from two matrices:
 \begin{itemize}
@@ -528,7 +525,7 @@ The deep potential model in both DP-v1 and DP-v2 consists of two neural networks
 \end{enumerate}
 
 Forces are obtained as the negative gradients of the total energy:
-\begin{equation}
+\begin{equation}\label{eq:force_def}
     \mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.   
 \end{equation}
 
@@ -1031,7 +1028,8 @@ each central atom has a fixed, preallocated number of neighbour slots for
     N_c^{(2)},\,
     \ldots,\,
     N_c^{(B)}
-\bigr],
+\bigr]
+\label{eq:sel_vector}
 \]
 where $N_c^{(b)}$ is the number of neighbours of species $b$ that the model
 expects for each central atom.
@@ -1106,11 +1104,9 @@ performance for large systems.
 
 For each central atom, DeepMD-v2 requires that the descriptor contains a fixed
 number of neighbour entries for each species, as prescribed by the vector
-\[
-\texttt{sel} = \bigl[ N_c^{(0)},\, N_c^{(1)},\, \dots \bigr].
-\]
-After grouping neighbours by species, each species
-block is adjusted to have exactly \(N_c^{(a)}\) rows:
+\(\texttt{sel}\) defined in Eq.~\eqref{eq:sel_vector}.
+After grouping neighbours by species, each species block is adjusted to have
+exactly \(N_c^{(a)}\) rows:
 \[
 \widehat{\mathrm{neighbors\_by\_type}}[a]
 =
@@ -1329,11 +1325,11 @@ $\mathbf r_j^{(\mathbf s)}$ denotes the ghost-extended coordinate of neighbour
 atom $j$ constructed via the periodic expansion in Eq.~\eqref{eq:ghost_expansion}.
 
 The relative displacement vector and its magnitude are then given by
-\[
+\begin{equation}\label{eq:relative_disp}
 \mathbf r_{ij} = \mathbf r_j^{(\mathbf s)} - \tilde{\mathbf r}_i,
 \qquad
 r_{ij} = \lVert \mathbf r_{ij} \rVert .
-\]
+\end{equation}
 
 
 \subsubsection{Cutoff behaviour and switching function}
@@ -1364,26 +1360,22 @@ DeepMD defines the geometric features of neighbour $j$ of atom $i$ as
         s(r_{ij}) \dfrac{z_{ij}}{r_{ij}}
     \bigr]
     \in \mathbb R^{1 \times 4}.
+\label{eq:raw_R_row}
 \end{equation}
 
 
 Collecting all neighbour rows yields the raw geometric matrix
-\[
+\begin{equation}\label{eq:raw_geometric_matrix}
 R_i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
-\]
+\end{equation}
 
 \subsubsection{Species-aware neighbour ordering}
 
 Neighbours are arranged by species and padded to fixed per-species capacities
-\[
-\texttt{sel} = [N_c^{(0)}, N_c^{(1)}, \dots],
-\]
-yielding for every atom a geometric matrix of identical shape
-\[
-R_i \in \mathbb R^{N_c^{\mathrm{(total)}} \times 4}.
-\]
+prescribed by \(\texttt{sel}\) (Eq.~\eqref{eq:sel_vector}), yielding for every
+atom a geometric matrix of identical shape, as described in Eq.~\eqref{eq:raw_geometric_matrix}.
 
-\subsubsection{Feature normalization (this work)}
+\subsubsection{Feature normalization}
 
 In the present implementation, the geometric matrix is further normalized using
 training-time statistics
@@ -1402,6 +1394,7 @@ The normalized matrix is defined as
 
 The first column $\hat s_{ij} = \hat R_{ij,0}$ serves as the scalar input to the
 embedding network.
+
 \subsubsection{Summary}
 
 The matrix $\hat R$ provides the complete geometric input for the subsequent
@@ -1696,10 +1689,7 @@ high-performance DeepMD-v2 inference inside HALMD.
 \label{sec:potential_energy}
 
 In the deep potential formalism, the total potential energy of a system of
-\(N\) atoms is written as a sum of atomic contributions,
-\begin{equation}
-    E = \sum_{i=1}^{N} E_i,
-\end{equation}
+\(N\) atoms is written as a sum of atomic contributions (Eq.~\eqref{eq:energy_decomp}),
 where the atomic energy \(E_i\) is obtained by evaluating a \emph{species-dependent}
 fitting neural network on the descriptor vector \(\mathbf{D}_i\).
 For an atom of species \(s_i\), the energy is computed as
@@ -1839,10 +1829,8 @@ for high-performance molecular dynamics simulations of multi-species systems wit
 \label{sec:forces}
 
 In the deep potential framework, forces are obtained as the negative 
-gradient of the total potential energy with respect to atomic coordinates,
-\[
-    \mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}.
-\]
+gradient of the total potential energy with respect to atomic coordinates
+as in Eq.~\eqref{eq:force_def}. 
 Because the energy is produced through a multi-stage mapping involving geometric 
 quantities (\(R\)), species-dependent embedding networks (\(G\)), and a 
 species-dependent fitting network, the force computation requires evaluating a 
@@ -1970,12 +1958,9 @@ and the assembly of the total force.
 
 To compute forces, we require the derivative of each row of the geometry
 matrix \(R\) with respect to the coordinates of the central atom \(i\).
-Each row depends on the neighbour displacement
-\[
-\mathbf{r}_{ij} = \mathbf{r}_j - \mathbf{r}_i = (d_x, d_y, d_z),
-\qquad
-r_{ij} = \lVert \mathbf{r}_{ij} \rVert,
-\]
+Each row depends on the neighbour displacement defined in
+Eq.~\eqref{eq:relative_disp}; we write
+\(\mathbf{r}_{ij} = (d_x, d_y, d_z)\) and \(r_{ij} = \lVert \mathbf{r}_{ij} \rVert\),
 and on the switched inverse distance
 \[
 \tilde{s}_{ij} = \frac{1}{r_{ij}}\, f_{\mathrm{sw}}(r_{ij}).
@@ -1986,17 +1971,8 @@ using only the multivariate chain rule.
 % -------------------------------------------------------
 \subsubsection{Step 1: Rewrite the Components of \texorpdfstring{$R$}{R}}
 
-For neighbour \(j\), the geometry row is
-\begin{equation}
-   R_{ij}
-=
-\bigl[
-    \tilde{s}_{ij},\;
-    \tilde{s}_{ij}\tfrac{d_x}{r_{ij}},\;
-    \tilde{s}_{ij}\tfrac{d_y}{r_{ij}},\;
-    \tilde{s}_{ij}\tfrac{d_z}{r_{ij}}
-\bigr]. 
-\end{equation}
+For neighbour \(j\), we use the geometry row in Eq.~\eqref{eq:raw_R_row} with
+the switched inverse distance \(s(r_{ij})\) replaced by \(\tilde{s}_{ij}\).
 
 We denote the three directional components compactly as
 \[
@@ -2050,7 +2026,7 @@ and combining these yields
 
 The switching function used in DeepMD is
 
-\begin{equation}
+\begin{equation}\label{eq:deepmd_switch}
     f_{\mathrm{sw}}(r)=
     \begin{cases}
     1, & r \le r_{\mathrm{sm}},\\[4pt]
@@ -2520,12 +2496,8 @@ bitwise agreement with DeepMD--v2 energies and forces for all tested models.
 
 We now combine all derivative components derived in the preceding sections to obtain
 the explicit DeepMD--v2 force expression.  
-The total potential energy is
-
-\[
-E = \sum_{i} E_i(D_i),
-\]
-so the force on atom $k$ follows from
+Starting from the energy decomposition in Eq.~\eqref{eq:energy_decomp}, the force on
+atom $k$ follows from
 
 \begin{equation}
     \mathbf{F}_k
