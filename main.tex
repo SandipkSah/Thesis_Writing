@@ -66,7 +66,7 @@
 \vspace*{20mm}
 \begin{center}
   \Large
-  Master thesis in Computational Science
+  Master thesis in computational science
 \end{center}
 \vfill
 \begin{flushleft}
@@ -280,119 +280,229 @@ Date:\hfill Signature:
 
 
 \section{Introduction}
+
 \subsection{Motivation}
 
-Molecular dynamics (MD) simulations play a central role in materials science by providing atomistic insight into the behavior of complex systems. Their predictive power depends on the interatomic potential used to approximate the underlying potential energy surface (PES). Classical empirical potentials are efficient but often too rigid to describe complex bonding environments, whereas \textit{ab initio} methods offer high accuracy at prohibitive computational cost. Machine-learned interatomic potentials---particularly the deep potential Molecular Dynamics (DeepMD) framework---bridge this gap by achieving near--quantum mechanical accuracy with classical-MD performance.
+Molecular dynamics (MD) simulations play a central role in materials science by
+providing atomistic insight into the behavior of complex systems across a wide
+range of length and time scales. In MD, atomic trajectories are obtained by
+integrating Newton’s equations of motion using forces derived from an
+interatomic potential that approximates the underlying quantum-mechanical
+potential energy surface (PES) \cite{frenkel2023understanding}.
 
-The work by Andrés Cruz, titled \textit{``Deep Neural Networks Potentials for Scalable Molecular Dynamics Simulations on Accelerator Hardware''} \cite{cruz2025deepmd}, represents an important step toward integrating Deep Potential models into the high-performance GPU-accelerated simulation engine HALMD. His work reconstructs the DeePMD-kit inference pipeline inside HALMD, extracts network weights from a trained TensorFlow model, and validates energy and force predictions for a \textit{single-species Copper system}. In particular, his implementation focuses on the \textit{two-body embedding smooth edition, DeepPot-SE descriptor} and reproduces the filter and fitting networks \textit{only for a monoatomic system}, making it suitable for single metal.
+Classical empirical interatomic potentials—such as Lennard--Jones, embedded-atom
+method (EAM), and bond-order potentials—are computationally efficient and allow
+simulations involving millions of atoms over nanoseconds to microseconds
+\cite{daw1984eam,brenner2002reactive}. However, these models rely on fixed
+analytical functional forms and limited parameter sets, which makes them too
+rigid to accurately describe complex bonding environments involving bond
+breaking and formation, charge transfer, polarization effects, defect chemistry,
+and chemically heterogeneous systems \cite{behler2007generalized,thompson2015spectral}.
+% For example, EAM potentials accurately reproduce bulk metallic cohesion but often
+% fail for surface reactions and defect energetics \cite{daw1984eam}, while
+% reactive bond-order potentials such as REBO suffer from limited transferability
+% across different chemical environments \cite{brenner2002reactive}.
 
-However, the implementation in \cite{cruz2025deepmd} remains limited to the simplest case of DeepMD-v2 architectures. It does not include multi-species support.
-%     \item multi-species support,
-%     \item species-dependent neighbor counts $N_c(a)$,
-%     \item type embedding networks,
-%     \item species-aware embedding matrices $G_i$,
-%     \item the general multi-species DeepPot-SE (se\_e2\_a) descriptor,
-%     \item or complex multi-body interactions required for alloys or chemically diverse systems.
-% \end{itemize}
+At the other end of the spectrum, \textit{ab initio} methods compute forces
+directly from quantum mechanics by explicitly solving the electronic structure
+problem, typically within density functional theory (DFT)
+\cite{kohn1965self,hohenberg1964inhomogeneous}. These approaches provide highly
+accurate predictions of bonding, reaction pathways, and material properties
+\cite{marx2009ab}. However, their computational cost scales steeply with
+system size—typically as $\mathcal{O}(N^3)$ with the number of electrons—which
+restricts practical simulations to at most a few thousand atoms and time scales
+of tens to hundreds of picoseconds \cite{marx2009ab}.
 
+Machine-learned interatomic potentials overcome this long-standing accuracy–efficiency
+dilemma. By training flexible models, particularly deep neural networks, on large
+datasets of \textit{ab initio} reference calculations, these potentials learn the
+PES without imposing restrictive analytical forms \cite{behler2007generalized,noe2020mlreview}.
+As a result, modern neural network potentials achieve energy errors on the order
+of a few meV/atom and force errors of tens of meV/\AA, which is comparable to the
+intrinsic accuracy of DFT \cite{bartok2015gap,schutt2017schnet,batzner20223}.
+At the same time, their evaluation cost scales linearly with system size and can
+be efficiently executed on GPUs, enabling simulations with millions of atoms at
+computational cost comparable to classical MD
+\cite{wang2018deepmd,zeng2023deepmdv2}. This combination of near--quantum mechanical
+accuracy and classical-MD performance has made machine-learned potentials a
+transformative technology for large-scale materials modeling.
 
+The work by Andrés Cruz, titled \textit{``Deep Neural Networks Potentials for
+Scalable Molecular Dynamics Simulations on Accelerator Hardware''}
+\cite{cruz2025deepmd}, represents an important step toward integrating Deep
+Potential models into the high-performance GPU-accelerated simulation engine
+HALMD. His work reconstructs the DeePMD-kit inference pipeline inside HALMD,
+extracts network weights from trained TensorFlow models, and compute energy and
+force predictions for a \textit{single-species copper system} \cite{Cu_fcc_slabs_2023}.
+In particular, his implementation focuses on the two-body embedding smooth edition
+(DeepPot-SE) descriptor and reproduces the filter and fitting networks only for a
+monoatomic system, making it suitable for single-element metals.
 
+However, the implementation in \cite{cruz2025deepmd} remains limited to the
+simplest class of DeepMD-v2 architectures and does not include multi-species
+support. Several essential components of the full DeepMD-v2 computational graph
+are simplified or omitted.
 
-
-Additionally, several intermediate steps present in the full DeepMD-v2 computational graph---such as normalization layers, ghost body extension for periodicity in boundary condition, species-wise descriptor partitioning, and certain derivative pathways---were simplified or omitted in the previous implementation. Cruz's work successfully established a working single-species DeepMD integration within HALMD.
-
-This work builds directly on the work of Cruz \cite{cruz2025deepmd} and advances it substantially. The primary contributions of the present work are:
+This thesis builds directly on the work of Cruz \cite{cruz2025deepmd} and advances
+it substantially. The primary contributions of the present work are:
 \begin{enumerate}
-    \item Generalizing the HALMD Deep Potential integration to \textit{multi-species, multi-body DeepMD-v2 models}, enabling simulations of binary and multicomponent alloy systems.
-    \item Reconstructing descriptor and fitting networks for the \textit{full multi-species DeepPot-SE architecture}, including multi-body descriptor terms.
-    \item Improving the \textit{accuracy} of the HALMD implementation by adding several computational steps missing in the previous work, such as proper cutoff normalization, multi-species descriptor algebra and so on.
+    \item Generalizing the HALMD Deep Potential integration to \textit{multi-species,
+          multi-body DeepMD-v2 models}, enabling simulations of binary and
+          multicomponent alloy systems.
+    \item Reconstructing descriptor and fitting networks for the full
+          \textit{multi-species DeepPot-SE architecture}, including multi-body
+          descriptor terms.
+    \item Improving the numerical \textit{accuracy} of the HALMD implementation by
+          incorporating essential computational steps missing in the previous
+          work, including proper cutoff normalization and multi-species descriptor
+          algebra.
 \end{enumerate}
 
-Through these extensions, the present thesis transforms HALMD from supporting a prototype single-component DeepMD potential into a \textit{ high-accuracy, multi-species DeepMD-v2 engine}. This significantly broadens HALMD's applicability, enabling large-scale molecular dynamics simulations of technologically relevant multicomponent materials at near--quantum mechanical accuracy.
+Through these extensions, the present thesis transforms HALMD from supporting a
+prototype single-component DeepMD potential into a \textit{high-accuracy,
+multi-species DeepMD-v2 engine}, significantly broadening its applicability and
+enabling large-scale molecular dynamics simulations of 
+multicomponent materials at near--quantum mechanical accuracy.
+
+Despite the significant progress achieved by recent machine-learning-based
+interatomic potentials and the integration of DeepMD into HALMD by
+Cruz \cite{cruz2025deepmd}, a substantial gap remains between
+state-of-the-art DeepMD models and their practical deployment within large-scale
+GPU-accelerated molecular dynamics engines. In particular, the lack of full
+multi-species support and the omission of several critical components of the
+DeepMD-v2 inference pipeline currently prevent HALMD from exploiting the full
+predictive power of modern DeepMD models for chemically complex materials.
+% Bridging this gap is essential for enabling high-fidelity simulations of
+% realistic multicomponent systems at scale.
 
 \subsection{Objectives and scope}
 
-The objective of this thesis is to extend and generalize the Deep Potential (DeePot) implementation in HALMD beyond the single-species, two-body descriptor developed by Cruz \cite{cruz2025deepmd}. While Cruz's work successfully demonstrated that HALMD can evaluate a DeePMD-v2 model for a monoatomic copper system, several components required for full multi-species DeepMD-v2 inference were missing. Most notably, the previous implementation did not include (i) the periodic coordinate extension and neighbor-list construction used in DeepMD \cite{wang2018deepmd}, (ii) normalization and scaling layers defined in the DP-v2 framework \cite{zeng2023deepmdv2}, (iii) species-dependent descriptors, or (iv) descriptor and filter weights that depend simultaneously on the central and neighbor species, as introduced in the multi-species DeepPot-SE descriptor \cite{zeng2023deepmdv2}.
+Motivated by this gap, the objective of this thesis is to extend and generalize the
+Deep Potential (DeePot) implementation in HALMD beyond the single-species, two-body
+descriptor developed by Cruz \cite{cruz2025deepmd}. While Cruz's work successfully
+demonstrated that HALMD can evaluate a DeePMD-v2 model for a monoatomic copper system,
+several components required for full multi-species DeepMD-v2 inference were missing.
+Most notably, the previous implementation did not include (i) the periodic coordinate
+extension and neighbor-list construction used in DeepMD \cite{wang2018deepmd},
+(ii) normalization and scaling layers defined in the DeePMD-v2 framework
+\cite{zeng2023deepmdv2}, (iii) species-dependent descriptors, or (iv) descriptor
+and filter weights that depend simultaneously on the central and neighbor species,
+as introduced in the multi-species DeepPot-SE descriptor \cite{zeng2023deepmdv2}.
 
-This thesis addresses these limitations by implementing the complete multi-species DeepMD-v2 inference pipeline, including accurate periodic handling of atomic environments. Specifically, the thesis pursues the following objectives:
+This thesis addresses these limitations by implementing the complete multi-species
+DeepMD-v2 inference pipeline, including accurate periodic handling of atomic environments.
+Specifically, the thesis pursues the following objectives:
 
 \begin{enumerate}
 
-    \item \textbf{Implement coordinate normalization, ghost-cell extension, and multi-type neighbor list construction.}  
-    The previous implementation did not include the canonical DeePMD preprocessing steps for periodic systems---wrapping coordinates into the primary simulation cell, generating ghost atoms to cover the cutoff radius, and constructing species-grouped neighbor lists---as described in the DeePMD methodology \cite{wang2018deepmd, zeng2023deepmdv2}.  
-    Implementing these steps ensures that HALMD reproduces the correct local environments required by the DeepPot-SE descriptors under periodic boundary conditions.
+    \item \textbf{Implement coordinate normalization, ghost-cell extension, and multi-type neighbor list construction.}
+    The previous implementation did not include the canonical DeePMD preprocessing steps
+    for periodic systems---wrapping coordinates into the primary simulation cell, generating
+    ghost atoms to cover the cutoff radius, and constructing species-grouped neighbor
+    lists---as described in the DeePMD methodology \cite{wang2018deepmd, zeng2023deepmdv2}.
+    Implementing these steps ensures that HALMD reproduces the correct local environments
+    required by the DeepPot-SE descriptors under periodic boundary conditions.
 
-    % \item \textbf{Generalize the descriptor pipeline to multi-species systems.}  
-    % This includes implementing species-dependent neighbor counts $N_c(a)$, species-aware embedding matrices $G_i$, and the full multi-species DeepPot-SE (se\_e2\_a) descriptor introduced in DP-v2 \cite{zeng2023deepmdv2}.
+    \item \textbf{Implement species-dependent filter networks.}
+    Extend the single-species embedding and filter networks used in \cite{cruz2025deepmd}
+    to support arbitrary numbers of atomic types, following the species-indexed filter
+    network formulation defined in the DP-v2 architecture \cite{zeng2023deepmdv2}.
 
-    \item \textbf{Implement species-dependent filter networks.}  
-    Extend the single-species embedding and filter networks used in \cite{cruz2025deepmd} to support arbitrary numbers of atomic types, following the species-indexed filter network formulation defined in the DP-v2 architecture \cite{zeng2023deepmdv2}.
-
-    \item \textbf{Reproduce the full DeepMD-v2 inference procedure with higher accuracy.}  
-    Incorporate several computational steps omitted in previous work, including normalization layers, descriptor scaling operations, smooth cutoff functions, and full force backpropagation through descriptor derivatives, consistent with the DeepMD-v2 formulation \cite{zeng2023deepmdv2, wang2018deepmd}.
-
-    % \item \textbf{Validate energy and force predictions for multi-component systems.}  
-    % Compare results from HALMD against the DeePMD-kit reference implementation for multi-species models and quantify numerical deviations, following standard validation procedures established in DeepMD literature \cite{wang2018deepmd, zeng2023deepmdv2}.
+    \item \textbf{Reproduce the full DeepMD-v2 inference procedure with higher accuracy.}
+    Incorporate several computational steps omitted in previous work, including normalization
+    layers, descriptor scaling operations, smooth cutoff functions, and full force
+    backpropagation through descriptor derivatives, consistent with the DeepMD-v2
+    formulation \cite{zeng2023deepmdv2, wang2018deepmd}.
 
 \end{enumerate}
 
-\noindent\textbf{Scope:}  
-This thesis focuses exclusively on the inference stage of DeepMD-v2, i.e., the computation of energies and forces from pre-trained models. Model training is outside the scope of this work. The implementation targets the multi-species DeepPot-SE descriptor and does not cover other descriptor families such as end-to-end or message-passing potentials. The work provides support for multi-species atomic systems relevant to alloys and chemically complex materials, while the underlying molecular dynamics algorithms (integrators, thermostats, barostats) rely on HALMD's existing infrastructure.
+\noindent\textbf{Scope:}
+This thesis focuses exclusively on the inference stage of DeepMD-v2, i.e., the computation
+of energies and forces from pre-trained models. Model training is outside the scope of this
+work. The implementation targets the multi-species DeepPot-SE descriptor and does not cover
+other descriptor families such as end-to-end or message-passing potentials. The work provides
+support for multi-species atomic systems relevant to alloys and chemically complex materials,
+while the underlying molecular dynamics algorithms (integrators, thermostats, barostats) rely
+on HALMD's existing infrastructure.
 
-
-
-% % ===============================
 \newpage
+
+
 \section{Background}
 
 
-\subsection{Ab initio molecular dynamics(AIMD) and Car--Parrinello molecular dynamics(CPMD)}
+% \subsection{Ab initio molecular dynamics (AIMD) and Car--Parrinello molecular dynamics (CPMD)}
 
-AIMD comprises a class of simulation methods in which
-interatomic forces are computed directly from quantum-mechanical electronic structure
-calculations, rather than from predefined empirical potentials. In AIMD, the potential
-energy surface governing atomic motion is evaluated on-the-fly, most commonly within
-the framework of density functional theory (DFT). This enables the explicit treatment
-of electronic effects such as bond formation and breaking, charge redistribution, and
-many-body interactions with high physical fidelity.
 
-In the most straightforward formulation of AIMD, known as Born--Oppenheimer molecular
-dynamics (BOMD), the electronic ground state is determined independently at every
-molecular dynamics time step. For a fixed atomic geometry, the electronic structure
-problem is solved iteratively using a self-consistent field (SCF) procedure until the
-Kohn--Sham energy functional is minimized under the constraint of orbital orthonormality.
-Forces on the nuclei are then obtained from the resulting ground-state energy, and the
-atomic positions are advanced according to Newton’s equations of motion. While this
-approach yields highly accurate forces, the repeated SCF minimization renders BOMD
-computationally expensive.
+\subsection{Ab initio molecular dynamics (AIMD) and Car--Parrinello molecular dynamics (CPMD)}
 
-CPMD provides an alternative formulation of AIMD
-that avoids an explicit electronic ground-state optimization at every time step.
-Instead, CPMD introduces an extended Lagrangian in which both nuclear positions and
-Kohn--Sham electronic orbitals are treated as time-dependent variables. The electronic
-degrees of freedom are assigned a fictitious mass and propagated dynamically alongside
-the nuclei, while orthonormality constraints enforce the Pauli exclusion principle.
-When the fictitious electronic mass is chosen sufficiently small, the electronic
-subsystem remains adiabatically separated from the nuclear motion and stays close to
-the Born--Oppenheimer surface.
+Ab initio molecular dynamics (AIMD) comprises a class of simulation methods in which
+interatomic forces are obtained directly from quantum-mechanical calculations of the
+electronic structure, rather than from predefined empirical or semi-empirical interatomic
+potentials \cite{marx2009ab,car1985unified}. In contrast to classical molecular
+dynamics, where the potential energy surface (PES) is approximated by analytical
+expressions with fixed parameters, AIMD evaluates the PES explicitly from first
+principles at every molecular dynamics time step.
 
-In CPMD, atomic motion follows classical Newtonian dynamics, whereas the electronic
+In practice, this means that for each atomic configuration the electronic Schr\"odinger
+equation is solved approximately using electronic structure methods, most commonly
+density functional theory (DFT) \cite{kohn1965self,hohenberg1964inhomogeneous}.
+The resulting electronic ground-state energy defines the instantaneous value of the PES,
+and its gradient with respect to nuclear coordinates yields the forces acting on the atoms.
+Because the electronic structure is recomputed \emph{on-the-fly} during the simulation,
+AIMD naturally incorporates changes in chemical bonding, charge redistribution,
+polarization effects, and many-body interactions without requiring any predefined bonding
+topology or fitted potential parameters \cite{marx2009ab}.
+
+In the most direct formulation of AIMD, known as Born--Oppenheimer molecular dynamics
+(BOMD), the electronic ground state is determined independently at every molecular
+dynamics step for the current atomic geometry. For a fixed nuclear configuration, the
+electronic structure problem is solved iteratively using a self-consistent field (SCF)
+procedure: starting from an initial guess for the electronic density, the Kohn--Sham
+equations of DFT are solved repeatedly until the input and output densities converge and
+the Kohn--Sham energy functional reaches a minimum subject to the orthonormality of
+the electronic orbitals \cite{payne1992iterative,marx2009ab}. Once convergence is
+achieved, the forces on the nuclei are obtained from the gradient of the converged
+electronic energy, and the atomic positions are advanced according to Newton’s
+equations of motion. Although this procedure yields highly accurate forces, the need to
+perform a full SCF optimization at every time step makes BOMD computationally
+expensive.
+
+Car--Parrinello molecular dynamics (CPMD) provides an alternative formulation of AIMD
+that avoids explicit electronic energy minimization at each step \cite{car1985unified}.
+CPMD introduces an extended Lagrangian in which both the nuclear coordinates and the
+Kohn--Sham orbitals are treated as dynamical variables. The electronic degrees of freedom
+are assigned a fictitious mass and propagated alongside the nuclei, while constraints
+maintain the orthonormality of the electronic orbitals. If the fictitious electronic mass is
+chosen sufficiently small, the electronic subsystem remains adiabatically separated from
+the nuclear motion and stays close to the instantaneous Born--Oppenheimer surface,
+thereby reproducing ground-state forces without performing a full SCF optimization at
+every time step \cite{marx2009ab}.
+
+In CPMD, nuclear motion follows classical Newtonian dynamics, whereas the electronic
 orbitals evolve according to equations of motion derived from the Kohn--Sham energy
-functional. This unified dynamical treatment eliminates the need for repeated SCF
-minimizations and can substantially reduce the computational cost per time step while
-maintaining forces consistent with the electronic ground state. Nevertheless, CPMD
-remains computationally demanding due to the underlying electronic structure
-calculations, limiting practical simulations to system sizes of a few hundred atoms
-and time scales on the order of tens to hundreds of picoseconds.
+functional. This unified dynamical treatment significantly reduces the computational
+cost per time step compared to BOMD, while maintaining forces consistent with first-
+principles electronic structure. Nevertheless, CPMD remains computationally demanding
+because each step still requires evaluating the Kohn--Sham Hamiltonian, performing
+large-scale matrix operations, and maintaining orthonormality of the electronic states.
+As a result, practical simulations are typically limited to system sizes of at most a few
+hundred atoms and time scales on the order of tens to hundreds of picoseconds
+\cite{marx2009ab,giannozzi2009quantum}.
 
-As a result, CPMD is primarily employed as a high-accuracy reference method rather than
-as a tool for large-scale molecular dynamics simulations. Recent work by Zhong
-\textit{et al.} illustrates the application of CPMD to hydrogen diffusion in complex
-garnet systems, demonstrating both its predictive power and its inherent limitations
-in accessible length and time scales \cite{zhong2025hydrogen}. In the context of this
-thesis, CPMD serves as a methodological benchmark that defines the target accuracy for
-interatomic force models and motivates the use of machine-learned potentials capable of
-reproducing first-principles accuracy at reduced computational cost.
+Consequently, CPMD is primarily employed as a high-accuracy reference method rather
+than as a routine tool for large-scale molecular dynamics simulations. Its predictive power
+arises from its explicit treatment of the electronic structure, which allows it to describe
+chemical reactions, diffusion mechanisms, and charge-transfer processes from first
+principles. For example, Zhong \textit{et al.} \cite{zhong2025hydrogen} used CPMD to
+investigate hydrogen diffusion in complex garnet electrolytes, accurately resolving
+hydrogen migration pathways and energy barriers that are difficult to capture with
+empirical force fields. At the same time, their study highlights the inherent limitations of
+CPMD: the high computational cost restricts the accessible length and time scales, making
+it impossible to directly simulate macroscopic diffusion processes or long-term structural
+evolution. These limitations motivate the development of machine-learned interatomic
+potentials that reproduce first-principles accuracy at a fraction of the computational cost.
+
 
 \subsection{High-accuracy large-scale molecular dynamics (HALMD) software}
 
@@ -413,9 +523,20 @@ governed by Newton’s equations of motion,
 
 where the potential energy function \( U \) describes interatomic interactions. In
 standard applications, \( U \) is given by analytical or tabulated empirical potentials,
-such as the Lennard--Jones, Gaussian Core, or Yukawa models. While these models are
-computationally efficient, they lack the quantum-mechanical accuracy provided by AIMD
-methods such as CPMD.
+such as the Lennard--Jones, Gaussian Core, or Yukawa models. While these classical empirical 
+models are computationally efficient and enable
+simulations of very large systems over long time scales, numerous studies have shown
+that they often fail to reproduce important quantum-mechanical effects such as bond
+breaking and formation, charge transfer, polarization, and accurate reaction barriers.
+For example, Daw and Baskes demonstrated that embedded-atom method (EAM) potentials
+can accurately describe bulk metallic cohesion but struggle for defect energetics and
+chemical reactions \cite{daw1984eam}. Similarly, Brenner \textit{et al.} showed that
+reactive empirical bond-order (REBO) potentials capture many covalent bonding trends
+but remain limited in transferability across chemical environments \cite{brenner2002reactive}.
+In contrast, first-principles methods such as CPMD explicitly resolve the electronic
+structure and have been shown to accurately predict reaction mechanisms, diffusion
+pathways, and defect energetics in complex materials \cite{marx2009ab,car1985unified}.
+
 
 A defining strength of HALMD is its GPU-accelerated backend. Computationally intensive
 tasks, including force evaluation, neighbor-list construction, and time integration,
@@ -428,8 +549,15 @@ HALMD follows a modular design philosophy in which integrators, interaction pote
 neighbor-list builders, and observables are implemented as interchangeable components
 configured via a Lua scripting interface \cite{halmdManual}. This modularity allows new
 force models to be integrated without modification of the core simulation engine.
-Simulation data are stored in the H5MD format \cite{debuyl2014h5md}, ensuring compatibility
-with established analysis workflows.
+Simulation data are stored in the H5MD format \cite{debuyl2014h5md}, a standardized,
+self-describing file format for molecular dynamics data built on top of the HDF5
+hierarchical data model. H5MD organizes simulation output—such as particle positions,
+velocities, forces, energies, and observables—into a structured hierarchy with explicit
+metadata describing units, physical meaning, and simulation parameters. This design
+ensures portability across simulation codes, long-term data reproducibility, and direct
+compatibility with modern analysis and visualization tools, thereby facilitating
+post-processing, data sharing, and workflow automation.
+
 
 In this thesis, HALMD serves as the computational backbone for large-scale molecular
 dynamics simulations. By replacing conventional empirical interaction potentials with
@@ -461,7 +589,24 @@ modeling.
 
 \subsection{Neural network potential (NNP)}
 
-In recent years, machine learning techniques—particularly deep neural networks (DNNs) have revolutionized the construction of interatomic potentials for molecular dynamics simulations. Traditional analytical potentials, while computationally efficient, are often limited in their ability to accurately capture many-body interactions and chemical complexities across diverse atomic environments. NNPs  overcome these limitations by learning the potential energy surface (PES) directly from \textit{ab initio} reference data \cite{behler2007generalized, noe2020mlreview}.
+% In recent years, machine learning techniques—particularly deep neural networks (DNNs) have revolutionized the construction of interatomic potentials for molecular dynamics simulations. Traditional analytical potentials, while computationally efficient, are often limited in their ability to accurately capture many-body interactions and chemical complexities across diverse atomic environments. NNPs  overcome these limitations by learning the potential energy surface (PES) directly from \textit{ab initio} reference data \cite{behler2007generalized, noe2020mlreview}.
+
+In recent years, machine learning techniques—particularly deep neural networks (DNNs)—
+have transformed the construction of interatomic potentials by replacing fixed analytical
+functional forms with flexible, data-driven models that learn the underlying potential
+energy surface directly from first-principles reference calculations. This shift enables
+interatomic potentials to capture complex many-body interactions, non-linear chemical
+effects, and diverse bonding environments with an accuracy previously achievable only
+by quantum-mechanical methods \cite{behler2007generalized,noe2020mlreview}.
+
+The key conceptual advance is that DNNs do not impose a predefined physical form for
+the potential; instead, they learn the mapping from atomic configurations to energies and
+forces directly from large datasets of \textit{ab initio} calculations. As a result, modern
+neural network potentials can simultaneously achieve near \textit{ab initio} accuracy and
+computational efficiency comparable to classical molecular dynamics, thereby enabling
+large-scale simulations that were previously inaccessible to first-principles methods
+\cite{behler2007generalized,noe2020mlreview}.
+
 
 In the NNP framework, a neural network is trained to approximate the mapping between an atomic configuration and its corresponding total energy and atomic forces. The total potential energy of a system is commonly expressed as a sum of atomic contributions \cite{behler2007generalized}:
 \begin{equation}
@@ -514,7 +659,7 @@ A defining element of DeepMD is the use of symmetry-preserving descriptors that 
     \item the \textit{R-matrix}, containing relative position vectors \( R_{ij} = \mathbf{r}_j - \mathbf{r}_i \) for neighbors \(j\) within the cutoff radius;
     \item the \textit{G-matrix}, a normalized representation incorporating angular information and many-body geometric correlations.
 \end{itemize}
-Distances $r_{ij} = |R_{ij}|$ are modulated by a smooth cutoff function to ensure continuity of energies and forces at the cutoff boundary~\cite{wang2018deepmd}.
+Distances $r_{ij} = |R_{ij}|$ are modulated by a smooth cutoff function, as defined in Eq.~\ref{eq:radial_switch}, to ensure continuity of energies and forces at the cutoff boundary~\cite{wang2018deepmd}.
 
 The deep potential model in both DP-v1 and DP-v2 consists of two neural networks: an \textit{embedding (filter) network} and a \textit{fitting network}~\cite{wang2018deepmd, zeng2023deepmdv2}.
 
@@ -797,8 +942,23 @@ where \(s\) indexes the species, \(k\) is the layer index, and \(t_n\) enumerate
 \end{itemize}
 DeepMD-v2 allows descriptor layers to use residual updates when \texttt{resnet\_dt=true}. In that case, a per-layer time-step tensor is extracted and marked in the output structure, though the use of residual updates depends on the model’s training configuration.
 
+% \paragraph{Embedding (filter) network:}
+% In the DeepMD architecture, the descriptor network is conceptually equivalent to the “filter” or embedding network described in \cite{wang2018deepmd, zeng2023deepmdv2}. Each species has its own filter-network parameters to account for species-dependent geometric correlations. The extracted filter-network weights are reshaped into a row-major layout compatible with HALMD’s GPU evaluation kernels.
+
 \paragraph{Embedding (filter) network:}
-In the DeepMD architecture, the descriptor network is conceptually equivalent to the “filter” or embedding network described in \cite{wang2018deepmd, zeng2023deepmdv2}. Each species has its own filter-network parameters to account for species-dependent geometric correlations. The extracted filter-network weights are reshaped into a row-major layout compatible with HALMD’s GPU evaluation kernels.
+In the DeepMD architecture, the descriptor network corresponds to the so-called filter or
+embedding network \cite{wang2018deepmd,zeng2023deepmdv2}. This network transforms the
+local geometric information of each neighbor—encoded through symmetry-preserving
+descriptors—into a high-dimensional feature representation that captures many-body
+correlations and chemical interactions. The embedding network consists of several fully
+connected layers with nonlinear activation functions and is evaluated independently for
+each neighbor atom.
+
+Each atomic species is assigned its own set of embedding-network parameters, enabling
+the model to represent species-dependent interaction patterns. The extracted filter-network
+weights are reshaped into a row-major layout compatible with HALMD’s GPU evaluation
+kernels.
+
 
 \paragraph{Fitting network:}
 For each species, the fitting network (also called the main network) predicts the atomic energy contribution \(E_i\). The extraction process retrieves:
@@ -846,7 +1006,12 @@ A central contribution of this thesis is the redesign of HALMD’s environment�
 pipeline so that it follows the exact conventions required by DeepMD-v2. The earlier 
 implementation by Cruz~\cite{cruz2025deepmd} relied on HALMD’s built-in periodic boundary 
 handling and neighbour list, which correctly satisfy the minimum-image convention used in 
-classical MD~\cite{colberg2011highly}. However, this approach provides only the minimal 
+classical MD~\cite{colberg2011highly}. 
+Under the minimum-image convention, the distance between two atoms is computed using only 
+the closest periodic image of each particle, such that every interatomic separation lies 
+within half the simulation box length in each Cartesian direction.
+
+However, this approach provides only the minimal 
 displacement between atoms and does not reproduce the full periodic environment expected by 
 the DP descriptor pipeline. DeepMD-v2 requires explicit coordinate wrapping, 
 ghost-cell expansion, species-aware neighbour grouping, and descriptor normalization 
@@ -1023,16 +1188,17 @@ independent of species.
 However, in DeepMD-v2 the descriptor is constructed under the assumption that
 each central atom has a fixed, preallocated number of neighbour slots for 
 \emph{each species type}, as defined by the model parameter \texttt{sel}:
-\[
-\texttt{sel} = 
-\bigl[
-    N_c^{(1)},\,
-    N_c^{(2)},\,
-    \ldots,\,
-    N_c^{(B)}
-\bigr]
-\label{eq:sel_vector}
-\]
+\begin{equation}
+    \texttt{sel} = 
+    \bigl[
+        N_c^{(1)},\,
+        N_c^{(2)},\,
+        \ldots,\,
+        N_c^{(B)}
+    \bigr]
+    \label{eq:sel_vector}
+\end{equation}
+
 where $N_c^{(b)}$ is the number of neighbours of species $b$ that the model
 expects for each central atom.
 
@@ -2107,10 +2273,20 @@ embedding channels quadratically.
 However, the actual DeepPot-SE descriptor used by the fitting network consists
 only of the first $M'$ columns of $D^{(i)}_{\mathrm{ext}}$:
 \begin{equation}
-    D^{(i)} = D^{(i)}_{\mathrm{ext}}[:,\,1\!:\!M'],
+    D^{(i)} = D^{(i)}_{\mathrm{ext}}\,P,
     \qquad
     D^{(i)} \in \mathbb{R}^{M \times M'}.
 \end{equation}
+
+Here \(P \in \mathbb{R}^{M \times M'}\) is the column-selection matrix
+\[
+P =
+\begin{bmatrix}
+I_{M'} \\
+0_{(M - M') \times M'}
+\end{bmatrix},
+\]
+so that multiplication by \(P\) is equivalent to retaining the first \(M'\) columns of \(D^{(i)}_{\mathrm{ext}}\).
 
 Thus, the descriptor truncation is implemented by a simple column restriction.
 
@@ -2789,11 +2965,11 @@ force compatibility in HALMD.
 
 
 
-\section{Discussion}
-% Accuracy vs. performance trade-offs.  
-% Numerical stability and precision issues.  
-% Possible sources of discrepancy from DeepMD reference.  
-% Lessons learned integrating ML potentials into MD engines.
+% \section{Discussion}
+% % Accuracy vs. performance trade-offs.  
+% % Numerical stability and precision issues.  
+% % Possible sources of discrepancy from DeepMD reference.  
+% % Lessons learned integrating ML potentials into MD engines.
 
 % ===============================
 \section{Conclusions and future Work}
