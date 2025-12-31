@@ -18,6 +18,7 @@
 
 
 \usepackage{tikz}
+\usepackage{circuitikz}
 \usetikzlibrary{arrows.meta, positioning}
 
 
@@ -1023,67 +1024,221 @@ components.
 
 \subsubsection{Explicit coordinate wrapping}
 
-DeepMD requires that all atomic coordinates are expressed inside the
+DeepMD requires that all atomic coordinates be expressed inside the
 primary simulation cell before any descriptor quantities are computed.
-This is stricter than the minimum-image convention normally used in
-classical molecular dynamics, where only the *differences* between
-coordinates need to be mapped back into the simulation box.  
-DeepMD, however, expects the \emph{absolute coordinates} of every atom to lie
-within the interval $[0, L_\alpha)$ for each Cartesian direction
-$\alpha \in \{x, y, z\}$.
+Unlike the minimum-image convention used in classical molecular
+dynamics, which only enforces periodicity for relative displacements,
+DeepMD operates on \emph{absolute atomic coordinates}.  
+Therefore each atomic position must be mapped explicitly into the
+reference simulation cell.
 
+For a general (possibly triclinic) simulation cell with lattice matrix
+$\mathbf{H} = [\mathbf{a}, \mathbf{b}, \mathbf{c}]$, the wrapping is
+performed in fractional coordinates.  
+Given a Cartesian position $\mathbf{r}_i$, the corresponding fractional
+coordinate is
 
-To ensure consistency, each coordinate component is mapped explicitly
-into the primary simulation box using
 \begin{equation}
-    \tilde{r}_{i\alpha}
-    =
-    r_{i\alpha}
-    -
-    L_\alpha 
-    \left\lfloor \frac{r_{i\alpha}}{L_\alpha} \right\rfloor .
+\mathbf{s}_i = \mathbf{r}_i \mathbf{H}^{-1}.
 \end{equation}
 
+Periodicity is enforced by applying a modulo operation in fractional
+space,
 
-This operation performs the following steps:
+\begin{equation}
+\tilde{\mathbf{s}}_i = \mathbf{s}_i - \lfloor \mathbf{s}_i \rfloor,
+\end{equation}
 
-\begin{itemize}
-    \item Compute the integer number of box lengths by which the particle
-          has moved:
-          \begin{equation}
-            n_\alpha = \left\lfloor \frac{r_{i\alpha}}{L_\alpha} \right\rfloor .
-          \end{equation}
-         
-          This may be positive (particle drifted to the right), negative
-          (particle drifted to the left), or zero.
+which ensures $\tilde{s}_{i\alpha} \in [0,1)$ for each lattice direction
+$\alpha \in \{a,b,c\}$.  
+The wrapped Cartesian coordinate is then reconstructed as
 
-    \item Subtract exactly $n_\alpha L_\alpha$ from the coordinate so that
-          the result lies in the interval $[0, L_\alpha)$:
-          \begin{equation}
-            \label{eq:coordinate_wrapping}
-            \tilde{r}_{i\alpha} = r_{i\alpha} - n_\alpha L_\alpha 
-          \end{equation}
+\begin{equation}
+\tilde{\mathbf{r}}_i = \tilde{\mathbf{s}}_i \mathbf{H}.
+\end{equation}
 
-    \item The wrapped coordinates $\tilde{\mathbf{r}}_i$ now correspond to
-          the representation DeepMD expects as input.
-\end{itemize}
+This procedure is equivalent to the simple Cartesian formula
+$\tilde r_{i\alpha} = r_{i\alpha} - L_\alpha \lfloor r_{i\alpha} / L_\alpha \rfloor$
+only in the special case of an orthorhombic cell.  
+For general simulation cells the fractional-coordinate formulation is
+required and is exactly the procedure implemented in the DeepMD input
+pipeline.
 
-This differs from the minimum-image convention, which only wraps
-\emph{relative displacements}.  
-DeepMD’s descriptor depends on absolute coordinates (through the
-ghost-cell extension and species grouping), so the wrapping step is
-necessary to guarantee that the computed descriptor matches the
-TensorFlow implementation exactly.
 
-% In summary, explicit coordinate wrapping enforces:
 
-% \begin{itemize}
-%     \item strict consistency with DeepMD-v2’s coordinate assumptions,
-%     \item reproducible descriptor construction regardless of diffusion or
-%           long simulation times,
-%     \item the correct behaviour of ghost-cell expansion and neighbour
-%           grouping.
-% \end{itemize}
+% \begin{figure}[H]
+% \centering
+% \resizebox{1\textwidth}{!}{%
+% % \begin{circuitikz}
+% \begin{circuitikz}[scale=2, transform shape]
+% % \fontsize{6}{6}\selectfont 
+
+% % \tikzstyle{every node}=[font=\tiny]
+% % \tikzstyle{every node}=[font=\fontsize{4}{4}\selectfont]
+% \tikzstyle{every node}=[font=\tiny]
+
+
+% % Outer reference region
+% \draw [dashed] (-1,1) rectangle (1,-1);
+
+% % Primary simulation cell
+% \draw (-0.5,0.5) rectangle (0.5,-0.5);
+
+% % --- Real atoms r_i ---
+% \draw [dashed] (-0.75,0.75) circle (0.08cm) node[left] {$r_0$};
+% \draw [dashed] (0.75,0.75) circle (0.08cm) node[right] {$r_3$};
+% \draw [dashed] (-0.75,-0.75)  circle (0.08cm) node[left] {$r_1$};
+% \draw [dashed] (1.25,-0.25) circle (0.08cm) node[right] {$r_2$};
+
+% % --- Fractional coordinates s_i ---
+% \draw [dashed] (-0.375,0.375) circle (0.08cm) node[left] {$s_0$, $\tilde s_0$};
+% \draw [dashed] (0.375,0.375)  circle (0.08cm) node[below] {$s_3$, $\tilde s_3$};
+% \draw [dashed] (-0.375,-0.375)  circle (0.08cm) node[left] {$s_1$,$\tilde s_1$};
+% \draw [dashed] (0.625,-0.125) circle (0.08cm) node[right] {$s_2$};
+
+% % % % --- Wrapped fractional coordinates \tilde s_i ---
+% % \draw (0.625,0.375) circle (0.08cm) node[above] {$\tilde s_0$};
+% % \draw (0.375,0.375) circle (0.08cm) node[right] {$\tilde s_3$};
+% % \draw (0.625,0.625) circle (0.08cm) node[right] {$\tilde s_1$};
+% \draw (0.125,-0.125)   circle (0.08cm) node[above] {$\tilde s_2$};
+
+
+% \draw (0.25,-0.25)   circle (0.08cm) node[above] {$\tilde r_2$};
+
+
+% % --- Mapping arrows ---
+% \draw[->, thin, gray] (-0.75,0.75) -- (-0.375,0.375);
+% \draw[->, thin, gray] (0.75,0.75) -- (0.375,0.375);
+% \draw[->, thin, gray] (-0.75,-0.75) -- (-0.375,-0.375);
+% \draw[->, thin, gray] (1.25,-0.25) -- (0.625,-0.125);
+
+% % \draw[->, thick, blue] (-0.375,0.375) -- (0.625,0.375);
+% % \draw[->, thick, blue] (-0.375,-0.375) -- (0.625,0.625);
+% \draw[->, thin, blue] (0.625,-0.125) -- (0.125,-0.125);
+
+% \draw[->, thin, black] (0.125,-0.125) -- (0.25,-0.25);
+% \draw[->, thin, black] (-0.375,0.375) -- (-0.75,0.75);
+% \draw[->, thin, black] (0.375,0.375) -- (0.75,0.75);
+% \draw[->, thin, black] (-0.375,-0.375) -- (-0.75,-0.75);
+
+% % --- Axis guides ---
+% \draw [dashed] (-1,0) -- (1,0);
+% \draw [dashed] (0,-1) -- (0,1);
+
+% % --- Dimensions ---
+% \draw [<->, >=Stealth] (-1,1) -- (-1,-1) node[pos=0.5, fill=white] {$L_y=2$};
+% \draw [<->, >=Stealth] (-1,1) -- (1,1) node[pos=0.5, fill=white] {$L_x=2$};
+
+% \draw [<->, >=Stealth] (-0.5,0.5) -- (-0.5,-0.5) node[pos=0.5, fill=white] {1};
+% \draw [<->, >=Stealth] (-0.5,0.5) -- (0.5,0.5) node[pos=0.5, fill=white] {1};
+
+% % % --- Column headers ---
+% % \node at (-0.8,1.2) {\textbf{Real}};
+% % \node at (-0.05,1.2) {\textbf{Fractional}};
+% % \node at (0.8,1.2) {\textbf{Wrapped}};
+
+% \end{circuitikz}
+% }%
+% \caption{Explicit coordinate wrapping illustrated in stages: real coordinates $r_i$, fractional coordinates $s_i=\mathbf r_i \mathbf H^{-1}$, and wrapped fractional coordinates $\tilde s_i$.}
+% \label{fig:coordinate_wrapping}
+% \end{figure}
+
+
+\begin{figure}[H]
+\centering
+\resizebox{1\textwidth}{!}{%
+\begin{circuitikz}[transform shape]
+\tikzstyle{every node}=[font=\tiny]
+
+% Outer reference region
+\draw [dashed] (-2,2) rectangle (2,-2);
+
+% Primary simulation cell
+\draw (-1,1) rectangle (1,-1);
+
+% --- Real atoms r_i ---
+\draw  (-1.5,1.5) circle (0.08cm) node[left] {$r_0$, $\tilde r_0$};
+\draw  (1.5,1.5) circle (0.08cm) node[right] {$r_3$, $\tilde r_3$};
+\draw  (-1.5,-1.5)  circle (0.08cm) node[left] {$r_1$, $\tilde r_1$};
+\draw [dashed] (3.2,-0.5) circle (0.08cm) node[right] {$r_2$};
+
+% --- Fractional coordinates s_i ---
+\draw [dashed] (-0.75,0.75) circle (0.08cm) node[left] {$s_0$, $\tilde s_0$};
+\draw [dashed] (0.75,0.75)  circle (0.08cm) node[below] {$s_3$, $\tilde s_3$};
+\draw [dashed] (-0.75,-0.75)  circle (0.08cm) node[left] {$s_1$,$\tilde s_1$};
+\draw [dashed] (1.6,-0.25) circle (0.08cm) node[right] {$s_2$};
+
+% --- Wrapped fractional coordinates
+\draw (0.6,-0.25) circle (0.08cm) node[above] {$\tilde s_2$};
+
+\draw (1.2,-0.5) circle (0.08cm) node[above] {$\tilde r_2$};
+
+% --- Mapping arrows ---
+\draw[->, thin, gray] (-1.5,1.5) -- (-0.75,0.75);
+\draw[->, thin, gray] (1.5,1.5) -- (0.75,0.75);
+\draw[->, thin, gray] (-1.5,-1.5) -- (-0.75,-0.75);
+\draw[->, thin, gray] (3.2,-0.5) -- (1.6,-0.25);
+
+\draw[->, thin, blue] (1.6,-0.25) -- (0.6,-0.25);
+
+\draw[->, thin, red] (0.6,-0.25) -- (1.2,-0.5);
+\draw[->, thin, red] (-0.75,0.75) -- (-1.5,1.5);
+\draw[->, thin, red] (0.75,0.75) -- (1.5,1.5);
+\draw[->, thin, red] (-0.75,-0.75) -- (-1.5,-1.5);
+
+% --- Axis guides ---
+\draw [dashed] (-2,0) -- (2,0);
+\draw [dashed] (0,-2) -- (0,2);
+
+% --- Dimensions ---
+\draw [<->, >=Stealth] (-2,2) -- (-2,-2) node[pos=0.5, fill=white] {$L_y=4$};
+\draw [<->, >=Stealth] (-2,2) -- (2,2) node[pos=0.5, fill=white] {$L_x=4$};
+
+\draw [<->, >=Stealth] (-1,1) -- (-1,-1) node[pos=0.5, fill=white] {2};
+\draw [<->, >=Stealth] (-1,1) -- (1,1) node[pos=0.5, fill=white] {2};
+
+\end{circuitikz}
+}%
+\caption{Explicit coordinate wrapping illustrated in stages: real coordinates $r_i$, fractional coordinates $s_i=\mathbf r_i \mathbf H^{-1}$, and wrapped fractional coordinates $\tilde s_i$.}
+\label{fig:coordinate_wrapping}
+\end{figure}
+
+
+
+
+% \begin{figure}[H]
+% \centering
+% \resizebox{1\textwidth}{!}{%
+% \begin{circuitikz}
+% \tikzstyle{every node}=[font=\small]
+
+% % ============================
+% % Parameters of the unit cell
+% % ============================
+% \def\Lx{5}   % width  = 7.5 - 2.5
+% \def\Ly{5}   % height = 11 - 6
+
+% % ============================
+% % Definition of ONE cell
+% % ============================
+% \newcommand{\cell}[3][]{%
+%   \draw[#1] (2.5,11) rectangle (7.5,6);
+%   \filldraw[#1, fill=black] (3.25,6.5) circle (0.08cm) node {$\tilde{r}^{#2,#3}_{1}$};
+%   \filldraw[#1, fill=black] (3.25,10.5) circle (0.08cm) node {$\tilde{r}^{#2,#3}_{0}$};
+%   \filldraw[#1, fill=black] (7,10.5)   circle (0.08cm) node {$\tilde{r}^{#2,#3}_{3}$};
+%   \filldraw[#1, fill=black] (5.5,8)    circle (0.08cm) node {$\tilde{r}^{#2,#3}_{2}$};
+% }
+
+
+
+% \end{circuitikz}
+% }%
+% \caption{Periodic replication of the computational cell.}
+% \end{figure}
+
+
+
+
 
 \subsubsection{Ghost-cell periodic extension}
 
@@ -1138,6 +1293,59 @@ atoms in the interior.
 By reproducing DeepMD's environment construction exactly, the HALMD
 implementation achieves full compatibility with the DeepMD-v2 descriptor
 generation process.
+
+
+\begin{figure}[H]
+\centering
+\resizebox{1\textwidth}{!}{%
+\begin{circuitikz}
+\tikzstyle{every node}=[font=\small]
+
+% ============================
+% Parameters of the unit cell
+% ============================
+\def\Lx{5}   % width  = 7.5 - 2.5
+\def\Ly{5}   % height = 11 - 6
+
+% ============================
+% Definition of ONE cell
+% ============================
+\newcommand{\cell}[3][]{%
+  \draw[#1] (2.5,11) rectangle (7.5,6);
+  \filldraw[#1, fill=black] (3.25,6.5) circle (0.08cm) node {$\tilde{r}^{#2,#3}_{1}$};
+  \filldraw[#1, fill=black] (3.25,10.5) circle (0.08cm) node {$\tilde{r}^{#2,#3}_{0}$};
+  \filldraw[#1, fill=black] (7,10.5)   circle (0.08cm) node {$\tilde{r}^{#2,#3}_{3}$};
+  \filldraw[#1, fill=black] (5.5,8)    circle (0.08cm) node {$\tilde{r}^{#2,#3}_{2}$};
+}
+
+% ============================
+% Draw center + 8 neighbors
+% ============================
+\foreach \i in {-1,0,1}{
+  \foreach \j in {-1,0,1}{
+    \begin{scope}[shift={(\i*\Lx,\j*\Ly)}]
+      \ifnum\i=0
+        \ifnum\j=0
+          \cell{\i}{\j}
+        \else
+          \cell[dotted]{\i}{\j}
+        \fi
+      \else
+        \cell[dotted]{\i}{\j}
+      \fi
+    \end{scope}
+  }
+}
+
+\end{circuitikz}
+}%
+\caption{Periodic replication of the computational cell.}
+\end{figure}
+
+
+
+
+
 
 
 
@@ -2977,6 +3185,13 @@ force compatibility in HALMD.
 % Limitations and optimization possibilities.  
 % Future extensions (multi-species descriptor, GPU parallelization, hybrid QM/ML MD).
 % Autodiff implementation, different Descriptors, possibly type-embedding
+
+
+
+
+
+
+
 
 
 \newpage
