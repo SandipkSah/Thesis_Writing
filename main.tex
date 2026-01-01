@@ -647,8 +647,6 @@ A variety of neural-network-based interatomic potentials have been proposed, inc
 Among the many neural-network interatomic potentials, the DeepMD framework is particularly well suited for this work because of its descriptor smoothness, explicit multi-species support, and efficient GPU implementation. The next subsection therefore focuses on DeepMD-kit version 2, which forms the methodological foundation of this thesis.
 
 
-
-
 \subsection{DeepMD}
 
 This work focuses on \textit{DeepMD version~2 kit}, the second-generation implementation of the Deep Potential framework. DeepMD-kit v2 represents a major advancement over the original DeepMD formulation~\cite{wang2018deepmd}, introducing improved descriptor smoothness, enhanced multi-species handling, and a refined software architecture that enables highly efficient GPU execution~\cite{zeng2023deepmdv2}. These features make DeepMD-kit v2 particularly suitable for modeling chemically complex systems such as binary alloys within HALMD.
@@ -687,6 +685,8 @@ A trained DeepMD model is stored as a TensorFlow \textit{frozen\_model.pb} file 
 
 % ===============================
 \newpage
+
+
 \section{Methodology}
 
 \subsection{Overview of implementation}
@@ -788,8 +788,6 @@ $E_{\text{total}} = \sum_i E^i$
 
 \subsection{Model parameter extraction}
 \label{sec:model_parameter_extraction}
-
-
 
 
 
@@ -2064,7 +2062,7 @@ quantities are combined with the fitting-network derivatives to assemble the
 total atomic forces.
 
 
-\subsection{Automatic Differentiation (AD)}
+\subsection{Automatic differentiation (AD)}
 \label{sec:autodiff}
 
 The computation of atomic forces in DeepMD requires propagating derivatives
@@ -2159,7 +2157,7 @@ The following sections detail the analytic components required to complete the
 force calculation: derivatives of the geometric mapping, descriptor derivatives,
 and the assembly of the total force.
 
-\subsection{Derivatives of the Geometry Matrix \texorpdfstring{$R$}{R}}
+\subsection{Derivatives of the geometry matrix \texorpdfstring{$R$}{R}}
 \label{sec:R_derivative}
 
 To compute forces, we require the derivative of each row of the geometry
@@ -2394,7 +2392,7 @@ Thus, once the derivative with respect to the central atom is known, the
 neighbour-atom derivative requires no further computation.
 
 
-\subsection{Derivative of the Embedding Matrix}
+\subsection{Derivative of the embedding matrix}
 \label{sec:G_derivative}
 
 For each central atom $i$, the embedding matrix
@@ -2447,7 +2445,7 @@ is obtained by automatic differentiation of the embedding network and is treated
 as a known quantity in the subsequent descriptor and force derivations.
 
 
-\subsection{Descriptor Derivative}
+\subsection{Descriptor derivative}
 \label{sec:descriptor_derivative}
 
 For each central atom $i$, the DeepPot-SE descriptor is constructed from the
@@ -2616,7 +2614,7 @@ direct linear term.
 
 
 
-\subsection{Fitting Network Derivative}
+\subsection{Fitting network derivative}
 \label{sec:fitting_network_derivative}
 
 Here we differentiate the species-dependent fitting networks so that descriptor sensitivities yield atomic-energy gradients.
@@ -2743,7 +2741,7 @@ bitwise agreement with DeepMD--v2 energies and forces for all tested models.
 
 
 
-\subsection{Final Force Assembly}
+\subsection{Final force assembly}
 \label{sec:final_force_assembly}
 
 We now assemble all derivative components derived in the preceding sections to
@@ -3195,7 +3193,6 @@ force compatibility in HALMD.
 
 
 \newpage
-\nocite{colberg2011highly}
 \printbibliography
 
 

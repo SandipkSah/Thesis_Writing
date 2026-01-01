@@ -1,0 +1,415 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nty/global//global/global/global}
+    \entry{behler2007generalized}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=eb5240658f030eb9bd974d7ce12c74d2}{%
+           family={Behler},
+           familyi={B\bibinitperiod},
+           given={Jörg},
+           giveni={J\bibinitperiod}}}%
+        {{hash=6f595160245adfcee55d0a5e4cdcd751}{%
+           family={Parrinello},
+           familyi={P\bibinitperiod},
+           given={Michele},
+           giveni={M\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {APS}%
+      }
+      \strng{namehash}{67aefa9eeeefbd2f0f38051faa418680}
+      \strng{fullhash}{67aefa9eeeefbd2f0f38051faa418680}
+      \strng{fullhashraw}{67aefa9eeeefbd2f0f38051faa418680}
+      \strng{bibnamehash}{67aefa9eeeefbd2f0f38051faa418680}
+      \strng{authorbibnamehash}{67aefa9eeeefbd2f0f38051faa418680}
+      \strng{authornamehash}{67aefa9eeeefbd2f0f38051faa418680}
+      \strng{authorfullhash}{67aefa9eeeefbd2f0f38051faa418680}
+      \strng{authorfullhashraw}{67aefa9eeeefbd2f0f38051faa418680}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Physical Review Letters}
+      \field{number}{14}
+      \field{title}{Generalized neural-network representation of high-dimensional potential-energy surfaces}
+      \field{volume}{98}
+      \field{year}{2007}
+      \field{pages}{146401}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1103/PhysRevLett.98.146401
+      \endverb
+    \endentry
+    \entry{brenner2002reactive}{article}{}{}
+      \name{author}{6}{}{%
+        {{hash=737c119eb338cec4a70592de964b920f}{%
+           family={Brenner},
+           familyi={B\bibinitperiod},
+           given={Donald\bibnamedelima W.},
+           giveni={D\bibinitperiod\bibinitdelim W\bibinitperiod}}}%
+        {{hash=2d2c94882cd65e526415e4e6a4292a81}{%
+           family={Shenderova},
+           familyi={S\bibinitperiod},
+           given={Olga\bibnamedelima A.},
+           giveni={O\bibinitperiod\bibinitdelim A\bibinitperiod}}}%
+        {{hash=aa7aed4cde625d45ce90fe8b6d1de11b}{%
+           family={Harrison},
+           familyi={H\bibinitperiod},
+           given={Judith\bibnamedelima A.},
+           giveni={J\bibinitperiod\bibinitdelim A\bibinitperiod}}}%
+        {{hash=3b95086f4ea556d4bbcefd3624808b24}{%
+           family={Stuart},
+           familyi={S\bibinitperiod},
+           given={Steven\bibnamedelima J.},
+           giveni={S\bibinitperiod\bibinitdelim J\bibinitperiod}}}%
+        {{hash=d6553bb6fb4bb04b60730b315b05b9ec}{%
+           family={Ni},
+           familyi={N\bibinitperiod},
+           given={Susan\bibnamedelima B.},
+           giveni={S\bibinitperiod\bibinitdelim B\bibinitperiod}}}%
+        {{hash=9db3edaac6605075a6762f444bb58d73}{%
+           family={Sinnott},
+           familyi={S\bibinitperiod},
+           given={Susan\bibnamedelima B.},
+           giveni={S\bibinitperiod\bibinitdelim B\bibinitperiod}}}%
+      }
+      \strng{namehash}{dc4d21f0f4dfd873cd15a539639c58e6}
+      \strng{fullhash}{60d1349d316db61ad21688918576c614}
+      \strng{fullhashraw}{60d1349d316db61ad21688918576c614}
+      \strng{bibnamehash}{dc4d21f0f4dfd873cd15a539639c58e6}
+      \strng{authorbibnamehash}{dc4d21f0f4dfd873cd15a539639c58e6}
+      \strng{authornamehash}{dc4d21f0f4dfd873cd15a539639c58e6}
+      \strng{authorfullhash}{60d1349d316db61ad21688918576c614}
+      \strng{authorfullhashraw}{60d1349d316db61ad21688918576c614}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Journal of Physics: Condensed Matter}
+      \field{number}{4}
+      \field{title}{A second-generation reactive empirical bond order (REBO) potential energy expression for hydrocarbons}
+      \field{volume}{14}
+      \field{year}{2002}
+      \field{pages}{783\bibrangedash 802}
+      \range{pages}{20}
+      \verb{doi}
+      \verb 10.1088/0953-8984/14/4/312
+      \endverb
+    \endentry
+    \entry{colberg2011highly}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=f909c9cf5235125103b43f49fa8cfec3}{%
+           family={Colberg},
+           familyi={C\bibinitperiod},
+           given={Peter\bibnamedelima H},
+           giveni={P\bibinitperiod\bibinitdelim H\bibinitperiod}}}%
+        {{hash=bfef2a47b86cf55b9276703c80c56686}{%
+           family={Höfling},
+           familyi={H\bibinitperiod},
+           given={Felix},
+           giveni={F\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Elsevier}%
+      }
+      \strng{namehash}{3b871cf456416a2d83b7682b33e6785e}
+      \strng{fullhash}{3b871cf456416a2d83b7682b33e6785e}
+      \strng{fullhashraw}{3b871cf456416a2d83b7682b33e6785e}
+      \strng{bibnamehash}{3b871cf456416a2d83b7682b33e6785e}
+      \strng{authorbibnamehash}{3b871cf456416a2d83b7682b33e6785e}
+      \strng{authornamehash}{3b871cf456416a2d83b7682b33e6785e}
+      \strng{authorfullhash}{3b871cf456416a2d83b7682b33e6785e}
+      \strng{authorfullhashraw}{3b871cf456416a2d83b7682b33e6785e}
+      \field{sortinit}{C}
+      \field{sortinithash}{4d103a86280481745c9c897c925753c0}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Computer Physics Communications}
+      \field{number}{5}
+      \field{title}{Highly accelerated simulations of glassy dynamics using GPUs: Caveats on limited floating-point precision}
+      \field{volume}{182}
+      \field{year}{2011}
+      \field{pages}{1120\bibrangedash 1129}
+      \range{pages}{10}
+    \endentry
+    \entry{cruz2025deepmd}{thesis}{}{}
+      \name{author}{1}{}{%
+        {{hash=bff68726454e29495d657bc53f97a7c4}{%
+           family={Cruz},
+           familyi={C\bibinitperiod},
+           given={Andres},
+           giveni={A\bibinitperiod}}}%
+      }
+      \list{institution}{1}{%
+        {Freie Universität Berlin}%
+      }
+      \strng{namehash}{bff68726454e29495d657bc53f97a7c4}
+      \strng{fullhash}{bff68726454e29495d657bc53f97a7c4}
+      \strng{fullhashraw}{bff68726454e29495d657bc53f97a7c4}
+      \strng{bibnamehash}{bff68726454e29495d657bc53f97a7c4}
+      \strng{authorbibnamehash}{bff68726454e29495d657bc53f97a7c4}
+      \strng{authornamehash}{bff68726454e29495d657bc53f97a7c4}
+      \strng{authorfullhash}{bff68726454e29495d657bc53f97a7c4}
+      \strng{authorfullhashraw}{bff68726454e29495d657bc53f97a7c4}
+      \field{sortinit}{C}
+      \field{sortinithash}{4d103a86280481745c9c897c925753c0}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{month}{9}
+      \field{title}{Deep Neural Networks Potentials for Scalable Molecular Dynamics Simulations on Accelerator Hardware}
+      \field{type}{Master's Thesis}
+      \field{year}{2025}
+    \endentry
+    \entry{daw1984eam}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=8dd6ebef9a629b48f78b720a0a8401c3}{%
+           family={Daw},
+           familyi={D\bibinitperiod},
+           given={Murray\bibnamedelima S.},
+           giveni={M\bibinitperiod\bibinitdelim S\bibinitperiod}}}%
+        {{hash=5e815babcfbd724e68b0b1d7bd9070eb}{%
+           family={Baskes},
+           familyi={B\bibinitperiod},
+           given={Michael\bibnamedelima I.},
+           giveni={M\bibinitperiod\bibinitdelim I\bibinitperiod}}}%
+      }
+      \strng{namehash}{30d888df653dd3a16fe12268ca03662a}
+      \strng{fullhash}{30d888df653dd3a16fe12268ca03662a}
+      \strng{fullhashraw}{30d888df653dd3a16fe12268ca03662a}
+      \strng{bibnamehash}{30d888df653dd3a16fe12268ca03662a}
+      \strng{authorbibnamehash}{30d888df653dd3a16fe12268ca03662a}
+      \strng{authornamehash}{30d888df653dd3a16fe12268ca03662a}
+      \strng{authorfullhash}{30d888df653dd3a16fe12268ca03662a}
+      \strng{authorfullhashraw}{30d888df653dd3a16fe12268ca03662a}
+      \field{sortinit}{D}
+      \field{sortinithash}{6f385f66841fb5e82009dc833c761848}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Physical Review B}
+      \field{number}{12}
+      \field{title}{Embedded-atom method: Derivation and application to impurities, surfaces, and other defects in metals}
+      \field{volume}{29}
+      \field{year}{1984}
+      \field{pages}{6443\bibrangedash 6453}
+      \range{pages}{11}
+      \verb{doi}
+      \verb 10.1103/PhysRevB.29.6443
+      \endverb
+    \endentry
+    \entry{marx2009ab}{book}{}{}
+      \name{author}{2}{}{%
+        {{hash=114025e29fb52c03b430529ecc0b4000}{%
+           family={Marx},
+           familyi={M\bibinitperiod},
+           given={Dominik},
+           giveni={D\bibinitperiod}}}%
+        {{hash=7b2538ddeb517075f48007298f6e5cd3}{%
+           family={Hutter},
+           familyi={H\bibinitperiod},
+           given={Jürg},
+           giveni={J\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press}%
+      }
+      \strng{namehash}{9fd96e784cf20830205389543052f33d}
+      \strng{fullhash}{9fd96e784cf20830205389543052f33d}
+      \strng{fullhashraw}{9fd96e784cf20830205389543052f33d}
+      \strng{bibnamehash}{9fd96e784cf20830205389543052f33d}
+      \strng{authorbibnamehash}{9fd96e784cf20830205389543052f33d}
+      \strng{authornamehash}{9fd96e784cf20830205389543052f33d}
+      \strng{authorfullhash}{9fd96e784cf20830205389543052f33d}
+      \strng{authorfullhashraw}{9fd96e784cf20830205389543052f33d}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Ab initio molecular dynamics: basic theory and advanced methods}
+      \field{year}{2009}
+    \endentry
+    \entry{noe2020mlreview}{article}{}{}
+      \name{author}{4}{}{%
+        {{hash=5857f5ccdcf3ecbd7dd77ba4c725a093}{%
+           family={Noé},
+           familyi={N\bibinitperiod},
+           given={Frank},
+           giveni={F\bibinitperiod}}}%
+        {{hash=db63bbf352ab65add01c899e021bf8a0}{%
+           family={Tkatchenko},
+           familyi={T\bibinitperiod},
+           given={Alexandre},
+           giveni={A\bibinitperiod}}}%
+        {{hash=9f1b6144a45b1967e989e74552e37ada}{%
+           family={Müller},
+           familyi={M\bibinitperiod},
+           given={Klaus-Robert},
+           giveni={K\bibinithyphendelim R\bibinitperiod}}}%
+        {{hash=c563854719492878129e818e34d953cc}{%
+           family={Clementi},
+           familyi={C\bibinitperiod},
+           given={Cecilia},
+           giveni={C\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Annual Reviews}%
+      }
+      \strng{namehash}{72644ce3178b84a2418a334f6837bb74}
+      \strng{fullhash}{c94633e895d22f5c6ab70aeff577cfa8}
+      \strng{fullhashraw}{c94633e895d22f5c6ab70aeff577cfa8}
+      \strng{bibnamehash}{72644ce3178b84a2418a334f6837bb74}
+      \strng{authorbibnamehash}{72644ce3178b84a2418a334f6837bb74}
+      \strng{authornamehash}{72644ce3178b84a2418a334f6837bb74}
+      \strng{authorfullhash}{c94633e895d22f5c6ab70aeff577cfa8}
+      \strng{authorfullhashraw}{c94633e895d22f5c6ab70aeff577cfa8}
+      \field{sortinit}{N}
+      \field{sortinithash}{22369a73d5f88983a108b63f07f37084}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Annual review of physical chemistry}
+      \field{number}{1}
+      \field{title}{Machine learning for molecular simulation}
+      \field{volume}{71}
+      \field{year}{2020}
+      \field{pages}{361\bibrangedash 390}
+      \range{pages}{30}
+    \endentry
+    \entry{wang2018deepmd}{article}{}{}
+      \true{moreauthor}
+      \true{morelabelname}
+      \name{author}{3}{}{%
+        {{hash=0664a31d75ae88d142a0e634df0ead4d}{%
+           family={Wang},
+           familyi={W\bibinitperiod},
+           given={Han},
+           giveni={H\bibinitperiod}}}%
+        {{hash=421de55f56f03a9283739635944e8e59}{%
+           family={Zhang},
+           familyi={Z\bibinitperiod},
+           given={Linfeng},
+           giveni={L\bibinitperiod}}}%
+        {{hash=dcbed821c92a82aa9d46cf353c58ec62}{%
+           family={Han},
+           familyi={H\bibinitperiod},
+           given={Jiequn},
+           giveni={J\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Elsevier}%
+      }
+      \strng{namehash}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \strng{fullhash}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \strng{fullhashraw}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \strng{bibnamehash}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \strng{authorbibnamehash}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \strng{authornamehash}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \strng{authorfullhash}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \strng{authorfullhashraw}{dfac2c9a576b0fdd068e2be6e827cf45}
+      \field{sortinit}{W}
+      \field{sortinithash}{4315d78024d0cea9b57a0c6f0e35ed0d}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Computer Physics Communications}
+      \field{title}{DeePMD-kit: A deep learning package for many-body potential energy representation and molecular dynamics}
+      \field{volume}{228}
+      \field{year}{2018}
+      \field{pages}{178\bibrangedash 184}
+      \range{pages}{7}
+    \endentry
+    \entry{zeng2023deepmdv2}{article}{}{}
+      \true{moreauthor}
+      \true{morelabelname}
+      \name{author}{10}{}{%
+        {{hash=ecd6ecf0870f9341ac52268eb35d2242}{%
+           family={Zeng},
+           familyi={Z\bibinitperiod},
+           given={Jinzhe},
+           giveni={J\bibinitperiod}}}%
+        {{hash=b6ed01daf082a9382031df5c08afcc82}{%
+           family={Zhang},
+           familyi={Z\bibinitperiod},
+           given={Duo},
+           giveni={D\bibinitperiod}}}%
+        {{hash=22abd9982c7732795a1f42ab9cb406e8}{%
+           family={Lu},
+           familyi={L\bibinitperiod},
+           given={Denghui},
+           giveni={D\bibinitperiod}}}%
+        {{hash=bb0052621141ae4e5460a4542b68618e}{%
+           family={Mo},
+           familyi={M\bibinitperiod},
+           given={Pinghui},
+           giveni={P\bibinitperiod}}}%
+        {{hash=7d3cef8f9964814559baa471fb94da91}{%
+           family={Li},
+           familyi={L\bibinitperiod},
+           given={Zeyu},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=c3c43a82fb3cda1be24db165a4393431}{%
+           family={Chen},
+           familyi={C\bibinitperiod},
+           given={Yixiao},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=bbc24990ce579d73a3aada1f2a762c98}{%
+           family={Rynik},
+           familyi={R\bibinitperiod},
+           given={Marián},
+           giveni={M\bibinitperiod}}}%
+        {{hash=4a069db8ff1cd0860f7b3f5e90b5d1c5}{%
+           family={Huang},
+           familyi={H\bibinitperiod},
+           given={Li’ang},
+           giveni={L\bibinitperiod}}}%
+        {{hash=66ce341cb72aea5f20e537e74dac8d9e}{%
+           family={Li},
+           familyi={L\bibinitperiod},
+           given={Ziyao},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=882714b880e0f0d8fc2260b7259ea6f9}{%
+           family={Shi},
+           familyi={S\bibinitperiod},
+           given={Shaochen},
+           giveni={S\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {AIP Publishing}%
+      }
+      \strng{namehash}{f23fff10a9781d1b3f63c154619b2620}
+      \strng{fullhash}{a05c4a2eae539918c3ce51a62b60dcc4}
+      \strng{fullhashraw}{a05c4a2eae539918c3ce51a62b60dcc4}
+      \strng{bibnamehash}{f23fff10a9781d1b3f63c154619b2620}
+      \strng{authorbibnamehash}{f23fff10a9781d1b3f63c154619b2620}
+      \strng{authornamehash}{f23fff10a9781d1b3f63c154619b2620}
+      \strng{authorfullhash}{a05c4a2eae539918c3ce51a62b60dcc4}
+      \strng{authorfullhashraw}{a05c4a2eae539918c3ce51a62b60dcc4}
+      \field{sortinit}{Z}
+      \field{sortinithash}{96892c0b0a36bb8557c40c49813d48b3}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{The Journal of Chemical Physics}
+      \field{number}{5}
+      \field{title}{DeePMD-kit v2: A software package for deep potential models}
+      \field{volume}{159}
+      \field{year}{2023}
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

@@ -1,0 +1,49 @@
+\frametitle{Ghost-Cell construction visualization}
+\vspace{0.25cm}
+\begin{center}
+    \begin{figure}[H]
+    \centering
+    \begin{circuitikz}[scale=0.4, transform shape]
+    \tikzstyle{every node}=[font=\small]
+
+    % ============================
+    % Parameters of the unit cell
+    % ============================
+    \def\Lx{5}   % width  = 7.5 - 2.5
+    \def\Ly{5}   % height = 11 - 6
+
+    % ============================
+    % Definition of ONE cell
+    % ============================
+    \newcommand{\cell}[3][]{%
+    \draw[#1] (2.5,11) rectangle (7.5,6);
+    \filldraw[#1, fill=black] (3.25,6.5) circle (0.08cm) node {$\tilde{r}^{#2,#3}_{1}$};
+    \filldraw[#1, fill=black] (3.25,10.5) circle (0.08cm) node {$\tilde{r}^{#2,#3}_{0}$};
+    \filldraw[#1, fill=black] (7,10.5)   circle (0.08cm) node {$\tilde{r}^{#2,#3}_{3}$};
+    \filldraw[#1, fill=black] (5.5,8)    circle (0.08cm) node {$\tilde{r}^{#2,#3}_{2}$};
+    }
+
+    % ============================
+    % Draw center + 8 neighbors
+    % ============================
+    \foreach \i in {-1,0,1}{
+    \foreach \j in {-1,0,1}{
+        \begin{scope}[shift={(\i*\Lx,\j*\Ly)}]
+        \ifnum\i=0
+            \ifnum\j=0
+            \cell{\i}{\j}
+            \else
+            \cell[dotted]{\i}{\j}
+            \fi
+        \else
+            \cell[dotted]{\i}{\j}
+        \fi
+        \end{scope}
+    }
+    }
+
+    \end{circuitikz}
+    \caption{Periodic replication of the computational cell.}
+    \end{figure}
+
+\end{center}
