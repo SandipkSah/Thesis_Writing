@@ -20,9 +20,9 @@
 % \title[DeepMD–HALMD Integration]{Integration of Deep Potential Molecular Dynamics (DeepMD v2) into HALMD for Multi-Species Alloy Systems}
 \title[DeepMD–HALMD Integration]{Accurate implementation of DeepMD-v2 potential calculation in HALMD for single species, extension to multi-species and Automatic-Differentiation-Based Force Computation}
 
-\author{Sandip Kumar Sah}
+\author{Sandip Sah}
 \institute{M.Sc. Computational Science, Freie Universität Berlin }
-\date{\today}
+\date{January 07, 2026}
 
 \addbibresource{ppt_ref.bib}
 
@@ -57,13 +57,13 @@
 \begin{itemize}
     % \item MD relies on interatomic potentials to approximate quantum-mechanical interactions \cite{frenkel2023understanding}.
     
-    \item Classical potentials are efficient but inaccurate for complex chemistry, while \textit{ab initio} methods are accurate but computationally expensive \cite{daw1984eam,marx2009ab}.
+    \item Classical potentials are efficient but inaccurate , while \textit{ab initio} methods are accurate but computationally expensive \cite{daw1984eam,marx2009ab}.
     
     \item Machine-learned potentials (e.g., DeepMD) achieve near--DFT accuracy at classical MD cost \cite{behler2007generalized,wang2018deepmd}.
     
-    \item Current DeepMD--HALMD integration is limited to single-species systems \cite{cruz2025deepmd}.
+    \item Current DeepMD--HALMD integration is inaccurate and limited to single-species systems \cite{cruz2025deepmd}.
     
-    \item This thesis enables scalable, accurate multi-species DeepMD simulations in HALMD.
+    % \item This thesis aims to accurate multi-species DeepMD simulations in HALMD.
 \end{itemize}
 \end{frame}
 
@@ -74,17 +74,18 @@
 
 \begin{frame}{Objectives and Scope}
 \begin{itemize}
-    \item Extend the DeepMD integration in HALMD beyond the single-species implementation of Cruz to full \textbf{multi-species DeepMD-v2} inference \cite{cruz2025deepmd}.
+    \item Extend the DeepMD integration in HALMD beyond the single-species implementation of Cruz to full \textit{multi-species DeepMD-v2} inference \cite{cruz2025deepmd}.
     
     \item Implement the missing core components of the DeepMD-v2 pipeline:
     \begin{itemize}
         \item periodic coordinate handling, ghost atoms, and multi-type neighbor lists,
         \item species-dependent filter and descriptor networks,
-        \item normalization, scaling, smooth cutoffs, and accurate force backpropagation
+        \item normalization, scaling, smooth cutoffs, and force calculations.
     \end{itemize}
     \cite{wang2018deepmd,zeng2023deepmdv2}.
     
-    \item Focus on the \textbf{inference stage} (energy and force evaluation) for multi-component materials using the DeepPot-SE descriptor; model training and alternative descriptors are outside the scope.
+    \item Focus on the \textbf{inference stage} (energy and force evaluation) for multi-component materials using the DeepPot-SE descriptor;
+    \item Model training and alternative descriptors are outside the scope.
 \end{itemize}
 \end{frame}
 
@@ -101,7 +102,7 @@
         m_i \frac{d^2 \mathbf r_i}{dt^2} = - \nabla_i U(\mathbf r_1, \mathbf r_2, \ldots, \mathbf r_N),
     \]
     
-    \item Traditionally uses efficient empirical interatomic potentials, which are limited for complex chemistry \cite{daw1984eam,brenner2002reactive}.
+    \item Traditionally uses efficient  interatomic potentials, but are limited for complex chemistry \cite{daw1984eam,brenner2002reactive}.
     
     \item This thesis extends HALMD with multi-species DeepMD-v2 force fields, enabling near \textit{ab initio} accuracy at classical MD cost \cite{wang2018deepmd,zeng2023deepmdv2}.
 \end{itemize}
@@ -119,17 +120,18 @@
     \item \textbf{Neural Network Potentials} learn interatomic interactions from \textit{ab initio} data, achieving near--DFT accuracy at classical MD cost \cite{behler2007generalized,noe2020mlreview}.
     
     \item Energy is written as a sum of atomic contributions:
-    \[
+    \begin{equation}
         E = \sum_i E_i(\mathcal{R}_i),
-    \]
+    \end{equation}
+        
     ensuring locality and linear scaling \cite{behler2007generalized}.
     
     \item \textbf{DeepMD-v2}: modern NNP with smooth, symmetry-preserving descriptors, explicit multi-species support, and efficient GPU execution \cite{wang2018deepmd,zeng2023deepmdv2}.
     
     \item Species-specific embedding and fitting networks predict energies; forces follow from
-    \[
+    \begin{equation}
         \mathbf F_i = -\frac{\partial E}{\partial \mathbf r_i}.
-    \]
+    \end{equation}
 \end{itemize}
 \end{frame}
 
@@ -285,11 +287,11 @@
 \begin{frame}{Explicit Coordinate Wrapping}
 \begin{itemize}
     \item DeepMD requires all atoms to be mapped into the primary cell using fractional coordinates:
-    \[
+    \begin{equation}
         \mathbf{s}_i = \mathbf{r}_i \mathbf{H}^{-1}, \qquad
         \tilde{\mathbf{s}}_i = \mathbf{s}_i - \lfloor \mathbf{s}_i \rfloor, \qquad
         \tilde{\mathbf{r}}_i = \tilde{\mathbf{s}}_i \mathbf{H}.
-    \]
+    \end{equation}
 
     \item This procedure is mandatory for general (non-orthorhombic) simulation cells and matches DeepMD’s internal pipeline \cite{wang2018deepmd}.
 \end{itemize}
@@ -444,7 +446,7 @@
 \begin{frame}[fragile]{Ghost-Cell Construction}
 \begin{itemize}
     \item Periodic images are generated from wrapped coordinates:
-    \[
+    \begin{equation}
         \mathbf{r}_i^{(\mathbf{s})}
         =
         \tilde{\mathbf{r}}_i
@@ -456,7 +458,7 @@
         s_z L_z\, \mathbf{e}_z,
         \quad
         s_\alpha \in [-n_{\mathrm{buff},\alpha},\, n_{\mathrm{buff},\alpha}]
-    \]
+    \end{equation}
 
     \item Buffer size ensures full cutoff coverage:
     \[
@@ -532,73 +534,98 @@
 
 \subsection{Construction of Configuration Matrix $R$}
 
-\begin{frame}[allowframebreaks]{Construction of the Embedding Matrix $G$}
+\begin{frame}[allowframebreaks]{Construction of the Configuration Matrix $R$}
+
 \begin{itemize}
-    \item The DeepPot-SE descriptor maps each normalized inverse distance
-    \[
-        \hat{s}_{ij} = \hat{R}^i_{j,0}
-    \]
-    to a learned embedding vector using a species-pair–specific filter network.
+    \item \textbf{Inputs:} wrapped central coordinate $\tilde{\mathbf r}_i$ and ghost-cell neighbour images $\mathbf r_j^{(\mathbf s)}$.
 
-    \item For each central–neighbor species pair $(a,b)$, DeepMD-v2 defines a dedicated neural network
-    \[
-        N^{(a,b)}_\theta : \mathbb{R} \rightarrow \mathbb{R}^M,
-    \]
-    producing the embedding row
-    \[
-        G^i_{j:} = N^{(a,b(j))}_\theta(\hat{s}_{ij}).
-    \]
+    \item \textbf{Relative displacement:}
+    \begin{equation}
+    \mathbf r_{ij} = \mathbf r_j^{(\mathbf s)} - \tilde{\mathbf r}_i,
+    \qquad
+    r_{ij} = \|\mathbf r_{ij}\|.
+    \end{equation}
 
-    \item All embedding rows are stacked to form
-    \[
-        G^i \in \mathbb{R}^{N_c^{\text{(total)}} \times M},
-        \quad
-        N_c^{\text{(total)}} = \sum_b N_c^{(b)}.
-    \]
+    \item \textbf{Smooth cutoff (DeepMD):}
+    \begin{equation}
+    s(r)=
+    \begin{cases}
+    \frac{1}{r}, & r<r_s,\\[2pt]
+    \frac{1}{r}\Big[x^3(-6x^2+15x-10)+1\Big], & r_s\le r<r_c,\\[2pt]
+    0, & r\ge r_c,
+    \end{cases}
+    \qquad
+    x=\frac{r-r_s}{r_c-r_s}.
+    \end{equation}
 
-    \item Different neighbor species use different filter networks, enabling chemically accurate multi-species modeling.
+    \item \textbf{Neighbour feature row (4 components):}
+    \begin{equation}
+    (R^i)_j=\Big[
+    s(r_{ij}),\;
+    s(r_{ij})\frac{x_{ij}}{r_{ij}},\;
+    s(r_{ij})\frac{y_{ij}}{r_{ij}},\;
+    s(r_{ij})\frac{z_{ij}}{r_{ij}}
+    \Big].
+    \end{equation}
 
-    \item HALMD stores the full network family as
-    \[
-        \texttt{networks}[a][b] \equiv N^{(a,b)}_\theta,
-    \]
-    and selects the correct one at runtime for each neighbor.
+    \item \textbf{Species-fixed layout via \texttt{sel}:}
+    \begin{equation}
+    N_c^{(b)}=\text{max neighbour slots for species }b,\qquad
+    \texttt{sel}=[N_c^{(1)},\dots,N_c^{(B)}],
+    \end{equation}
+    \begin{equation}
+    N_c^{(\mathrm{total})}=\sum_{b=1}^{B}N_c^{(b)},\qquad
+    R^i\in\mathbb R^{N_c^{(\mathrm{total})}\times 4}.
+    \end{equation}
+    Neighbours are grouped by species and truncated/zero-padded to match \texttt{sel}.
+
+    \item \textbf{Normalization (training statistics):}
+    \begin{equation}
+    \hat R^i_{k\alpha}=\frac{R^i_{k\alpha}-t_{\mathrm{avg},\alpha}}{t_{\mathrm{std},\alpha}},
+    \qquad
+    \hat s_{ij}=\hat R^i_{j,0}\;\;(\text{input to embedding net}).
+    \end{equation}
 \end{itemize}
+
 \end{frame}
 
 
-%=====================================================
 
 \subsection{Construction of embedding matrix $G$}
 \begin{frame}[allowframebreaks]{Construction of the Embedding Matrix $G$}
 \begin{itemize}
-    \item The DeepPot-SE descriptor converts the normalized inverse distance
-    \[
+    \item The DeepPot-SE descriptor maps each normalized inverse distance
+    \begin{equation}
         \hat{s}_{ij} = \hat{R}^i_{j,0}
-    \]
-    into a learned embedding using species-pair filter networks.
+    \end{equation}
+    to a learned embedding vector using a species-pair–specific filter network.
 
-    \item For each central–neighbor species pair $(a,b)$, DeepMD-v2 defines a dedicated MLP
-    \[
+    \item For each central–neighbor species pair $(a,b)$, DeepMD-v2 defines a dedicated neural network
+    \begin{equation}
         N^{(a,b)}_\theta : \mathbb{R} \rightarrow \mathbb{R}^M,
-    \]
-    producing embedding rows
-    \[
+    \end{equation}
+    producing the embedding row
+    \begin{equation}
         G^i_{j:} = N^{(a,b(j))}_\theta(\hat{s}_{ij}).
-    \]
+    \end{equation}
 
-    \item Stacking all embedding rows yields
-    \[
+    \item All embedding rows are stacked to form
+    \begin{equation}
         G^i \in \mathbb{R}^{N_c^{\text{(total)}} \times M},
-        \qquad
+        \quad
         N_c^{\text{(total)}} = \sum_b N_c^{(b)}.
-    \]
+    \end{equation}
 
-    \item Different neighbor species use different networks even for identical geometry — a key mechanism for accurate multi-species modeling.
+    \item Different neighbor species use different filter networks, enabling chemically accurate multi-species modeling.
 
-    \item HALMD stores all filter networks as \(\texttt{networks}[a][b]\) and selects them dynamically at runtime.
+    \item HALMD stores the full network family as
+    \begin{equation}
+        \texttt{networks}[a][b] \equiv N^{(a,b)}_\theta,
+    \end{equation}
+    and selects the correct one at runtime for each neighbor.
 \end{itemize}
 \end{frame}
+
 
 
 \subsection{Descriptor Computation}
@@ -607,31 +634,31 @@
     \item The DeepPot-SE descriptor combines geometric information $\hat{R}^i$ and learned embeddings $G^i$ to form the final descriptor $D^i$ used to predict atomic energy.
 
     \item After neighbor construction, the normalized geometric matrix is
-    \[
+    \begin{equation}
         \hat{R}^i \in \mathbb{R}^{N_c^{\text{(total)}} \times 4},
-    \]
+    \end{equation}
     containing inverse distances and angular components.
 
     \item Each row is embedded via a species-pair neural network:
-    \[
+    \begin{equation}
         G^i_{j:} = N^{(a,b(j))}_\theta(\hat{s}_{ij}),
         \qquad
         G^i \in \mathbb{R}^{N_c^{\text{(total)}} \times M}.
-    \]
+    \end{equation}
 
     \item The quadratic descriptor is then constructed as
-    \[
+    \begin{equation}
         D^i
         =
         \frac{1}{(N_c^{\text{(total)}})^2}
         \bigl((G^i)^{T}\hat{R}^i\bigr)
         \bigl((\hat{R}^i)^{T}G^{i,\text{trunc}}\bigr).
-    \]
+    \end{equation}
 
     \item Flattening $D^i$ produces the final descriptor vector
-    \[
+    \begin{equation}
         \mathbf D^i \in \mathbb{R}^{MM'},
-    \]
+    \end{equation}
     which is passed to the fitting network to predict energy and forces.
 \end{itemize}
 \end{frame}
@@ -642,15 +669,15 @@
 \begin{frame}[allowframebreaks]{Potential Energy Evaluation}
 \begin{itemize}
     \item DeepMD expresses the total energy as a sum of atomic energies:
-    \[
+    \begin{equation}
         E_{\text{tot}} = \sum_{i=1}^N E^i.
-    \]
+    \end{equation}
 
     \item For each atom $i$ of species $s_i$, the atomic energy is obtained from a
     \textbf{species-dependent fitting network}:
-    \[
+    \begin{equation}
         E^i = \mathrm{NN}_{s_i}(\mathbf D^i) + b_{s_i}.
-    \]
+    \end{equation}
 
     \item DeepMD-v2 defines one fitting network per species; HALMD reconstructs
     all networks directly from the frozen TensorFlow graph.
@@ -660,341 +687,8 @@
 
     \item The new HALMD implementation extends previous work from single-species
     to full \textbf{multi-species} DeepMD-v2 inference.
-
-    \item HALMD reproduces DeepMD-v2 energies to floating-point precision for
-    monoatomic and multi-component systems.
 \end{itemize}
 \end{frame}
-
-
-%=====================================================
-
-\section{Force Computation}
-
-
-\subsection{Overview}
-\begin{frame}{Overview}
-\begin{itemize}
-    \item In DeepMD, atomic forces are obtained from the energy by
-    \[
-        \mathbf F_i = -\frac{\partial E_{\text{tot}}}{\partial \mathbf r_i}.
-    \]
-
-    \item The total energy depends on atomic coordinates through multiple stages:
-    \[
-        \mathbf r 
-        \;\rightarrow\; R 
-        \;\rightarrow\; G 
-        \;\rightarrow\; D 
-        \;\rightarrow\; E.
-    \]
-
-    \item Force evaluation therefore requires a structured application of the chain rule:
-    \[
-        \frac{\partial E}{\partial \mathbf r}
-        =
-        \frac{\partial E}{\partial D}
-        \frac{\partial D}{\partial G}
-        \frac{\partial G}{\partial R}
-        \frac{\partial R}{\partial \mathbf r}.
-    \]
-
-    \item HALMD reproduces the DeepMD-v2 derivative pipeline by combining:
-    \begin{itemize}
-        \item automatic differentiation for all neural networks,
-        \item analytic derivatives for geometric and descriptor operations.
-    \end{itemize}
-
-    \item This yields forces that match DeepMD-v2 outputs to floating-point precision.
-\end{itemize}
-\end{frame}
-
-
-\subsection{Automatic differentiation}
-\begin{frame}[allowframebreaks]{Automatic Differentiation (AD)}
-\begin{itemize}
-    \item Force computation in DeepMD requires derivatives through geometry,
-    embedding networks, descriptor construction, and fitting networks.
-
-    \item Analytic differentiation is feasible for geometric operations, but
-    neural networks contain nonlinear activations and residual connections —
-    making analytic derivatives impractical.
-
-    \item HALMD therefore uses \textbf{automatic differentiation (AD)} for all
-    neural-network components.
-
-    \item \textbf{Current HALMD implementation: Forward-mode AD}
-    \begin{itemize}
-        \item Efficient when the number of inputs is small.
-        \item Used for embedding networks: 
-        \[
-            \hat{s}_{ij} \rightarrow G^i_j, \quad 
-            \frac{\partial G^i_j}{\partial \hat{s}_{ij}}.
-        \]
-        \item Also used to compute 
-        $\partial E_i / \partial D_{i,\alpha}$ in the fitting network.
-    \end{itemize}
-
-    \item \textbf{Future improvement: Reverse-mode AD}
-    \begin{itemize}
-        \item Optimal for scalar outputs with many inputs.
-        \item Would greatly accelerate fitting-network differentiation.
-    \end{itemize}
-
-    \item HALMD uses a \textbf{hybrid approach}:
-    \begin{itemize}
-        \item analytic derivatives for geometry,
-        \item AD for neural networks.
-    \end{itemize}
-\end{itemize}
-\end{frame}
-
-
-
-\subsection{Derivative of geomety matrix $R$}
-\begin{frame}{Derivatives of the Geometry Matrix $R$}
-\begin{itemize}
-    \item Forces require derivatives of each geometry row
-    \[
-        \frac{\partial R^{(i)}_{j\alpha}}{\partial \mathbf r_i}.
-    \]
-
-    \item Each row depends on the relative displacement
-    \[
-        \mathbf r_{ij} = \mathbf r_j - \mathbf r_i, \quad
-        r_{ij} = \|\mathbf r_{ij}\|.
-    \]
-
-    \item Geometry features:
-    \[
-        R^{(i)}_{j0} = s(r_{ij}), \qquad
-        R^{(i)}_{j\alpha} = s(r_{ij}) \frac{d_\alpha}{r_{ij}}.
-    \]
-
-    \item All derivatives follow directly from the multivariate chain rule.
-\end{itemize}
-\end{frame}
-
-
-
-\subsection{Derivative of embedding matrix $G$}
-\begin{frame}{Derivative of the Embedding Matrix $G$}
-\begin{itemize}
-    \item Each embedding row is produced by a species-dependent network:
-    \[
-        G^{(i)}_{j:} = N^{(a,b)}_\theta(\hat s_{ij}),
-        \qquad
-        \hat s_{ij} = \hat R^{(i)}_{j0}.
-    \]
-
-    \item Therefore, $G^{(i)}$ depends on geometry only through
-    the single scalar $\hat s_{ij}$.
-
-    \item Its derivative reduces to a one–dimensional neural-network derivative:
-    \[
-        \frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j0}}
-        =
-        \frac{d\, N^{(a,b)}_{\theta,p}}{d \hat s}(\hat s_{ij}),
-        \qquad p = 1,\dots,M.
-    \]
-
-    \item All other geometric components do \textbf{not} affect $G$:
-    \[
-        \frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j\alpha}} = 0,
-        \qquad \alpha \neq 0.
-    \]
-\end{itemize}
-\end{frame}
-
-
-\subsection{descriptor derivative}
-\begin{frame}{Descriptor Structure}
-\begin{itemize}
-    \item The descriptor for atom $i$ is built from
-    \[
-        G^{(i)} \in \mathbb{R}^{N_c \times M},
-        \qquad
-        \hat R^{(i)} \in \mathbb{R}^{N_c \times 4}.
-    \]
-
-    \item Intermediate contraction:
-    \[
-        C^{(i)} = \frac{1}{N_c} (G^{(i)})^\mathsf{T} \hat R^{(i)},
-        \qquad
-        C^{(i)} \in \mathbb{R}^{M \times 4}.
-    \]
-
-    \item Quadratic (permutation-invariant) descriptor:
-    \[
-        D^{(i)}_{\mathrm{ext}} = C^{(i)} (C^{(i)})^\mathsf{T}.
-    \]
-
-    \item Only first $M'$ columns are used:
-    \[
-        D^{(i)} = D^{(i)}_{\mathrm{ext}}[:,1:M'].
-    \]
-\end{itemize}
-\end{frame}
-
-\begin{frame}{Descriptor Derivative: Key Results}
-\begin{itemize}
-    \item Component form of the quadratic descriptor:
-    \[
-        (D^{(i)}_{\mathrm{ext}})_{mn} = \sum_{\alpha=1}^{4} C^{(i)}_{m\alpha} C^{(i)}_{n\alpha}.
-    \]
-
-    \item Derivative w.r.t. intermediate matrix:
-    \[
-        \frac{\partial (D^{(i)}_{\mathrm{ext}})_{mn}}{\partial C^{(i)}_{p\beta}}
-        =
-        \delta_{mp} C^{(i)}_{n\beta} + \delta_{np} C^{(i)}_{m\beta}.
-    \]
-
-    \item Intermediate derivative decomposition:
-    \[
-        \frac{\partial C^{(i)}}{\partial \hat R^{(i)}}
-        =
-        \underbrace{\left.\frac{\partial C^{(i)}}{\partial \hat R^{(i)}}\right|_G}_{\text{explicit}}
-        +
-        \underbrace{\left.\frac{\partial C^{(i)}}{\partial G^{(i)}}\right|_{\hat R}
-        \frac{\partial G^{(i)}}{\partial \hat R^{(i)}}}_{\text{implicit}}.
-    \]
-\end{itemize}
-\end{frame}
-
-
-
-\subsection {fitting network derivative}
-\begin{frame}{Fitting Network Derivative}
-\begin{itemize}
-    \item Atomic energy for atom $i$:
-    \[
-        E^i = \mathrm{NN}_{s_i}\!\bigl(\mathrm{vec}(D^i)\bigr),
-        \qquad
-        D^i \in \mathbb{R}^{M \times M'}.
-    \]
-
-    \item For force assembly we require the Jacobian
-    \[
-        J^i = \frac{\partial E^i}{\partial D^i}
-        \in \mathbb{R}^{M \times M'}.
-    \]
-
-    \item The fitting network is a deep nonlinear mapping  
-          (fully-connected layers, activations, residuals).
-
-    \item Explicit analytic differentiation is impractical →  
-          \textbf{automatic differentiation (AD)} is used.
-\end{itemize}
-\end{frame}
-
-
-\begin{frame}{Forward-Mode AD in HALMD}
-\begin{itemize}
-    \item HALMD uses \textbf{forward-mode AD} (Boost.Autodiff).
-
-    \item For each descriptor component $\alpha = 1,\dots,MM'$:
-    \begin{enumerate}
-        \item Seed $\mathrm{vec}(D^i)_\alpha$ with unit tangent.
-        \item Propagate through the full fitting network.
-        \item Extract $\partial E^i / \partial \mathrm{vec}(D^i)_\alpha$.
-    \end{enumerate}
-
-    \item After all seeds:
-    \[
-        \frac{\partial E^i}{\partial \mathrm{vec}(D^i)}
-        \in \mathbb{R}^{MM'}.
-    \]
-
-    \item Reshape to obtain the descriptor Jacobian:
-    \[
-        J^i =
-        \mathrm{reshape}_{M\times M'}
-        \!\left(\frac{\partial E^i}{\partial \mathrm{vec}(D^i)}\right).
-    \]
-\end{itemize}
-\end{frame}
-
-
-
-\subsection{Final force assembly}
-\begin{frame}{Final Force Assembly}
-\begin{itemize}
-    \item Total force on atom $k$:
-    \[
-        \mathbf F_k = - \frac{\partial E}{\partial \mathbf r_k}
-        = - \sum_i \frac{\partial E^i}{\partial \mathbf r_k}.
-    \]
-
-    \item Descriptor chain:
-    \[
-        \mathbf r
-        \rightarrow
-        \hat R^i
-        \rightarrow
-        G^i
-        \rightarrow
-        C^i
-        \rightarrow
-        D^i
-        \rightarrow
-        E^i.
-    \]
-
-    \item Using the chain rule:
-    \[
-        \mathbf F_k
-        =
-        - \sum_i \sum_{m,n}
-        J^i_{mn}
-        \frac{\partial D^i_{mn}}{\partial \mathbf r_k},
-    \]
-    where
-    \[
-        J^i = \frac{\partial E^i}{\partial D^i}.
-    \]
-\end{itemize}
-\end{frame}
-
-
-\begin{frame}{Explicit DeepMD-v2 Force Expression}
-\begin{itemize}
-    \item Descriptor derivative:
-    \[
-        \frac{\partial D^i_{mn}}{\partial \hat R^i_{j\alpha}}
-        \quad \text{(from descriptor analysis)}.
-    \]
-
-    \item Geometry derivative:
-    \[
-        \frac{\partial \hat R^i_{j\alpha}}{\partial \mathbf r_k}
-        \quad \text{(analytic geometry)}.
-    \]
-
-    \item Final force:
-    \[
-        \boxed{
-        \mathbf F_k
-        =
-        -
-        \sum_i
-        \sum_j
-        \sum_{m=1}^M \sum_{n=1}^{M'}
-        J^i_{mn}
-        \frac{\partial D^i_{mn}}{\partial \hat R^i_{j\alpha}}
-        \frac{\partial \hat R^i_{j\alpha}}{\partial \mathbf r_k}
-        }.
-    \]
-
-    \item Hybrid structure:
-    \begin{itemize}
-        \item \textbf{Neural:} $J^i$, $\partial G^i/\partial \hat R$ (via AD)
-        \item \textbf{Analytic:} $\partial \hat R / \partial \mathbf r$
-    \end{itemize}
-\end{itemize}
-\end{frame}
-
-
 
 \section{Results}
 \subsection{Energy agreement between DeepMD and HALMD}
@@ -1049,9 +743,9 @@ Cu B & 1 & 32  & $-89.4412$   & $-89.4412$   & $\checkmark$ \\
 Cu B & 1 & 108 & $-335.96$    & $-335.96$    & $\checkmark$ \\
 Cu B & 1 & 256 & $-836.414$   & $-836.414$   & $\checkmark$ \\
 \hline
-HEA & 5 & 16  & $-66.7551048$ & $-66.7551$ & $\checkmark$ \\
-HEA & 5 & 128 & $-895.4982878$ & $-895.498$ & $\checkmark$ \\
-HEA & 5 & 432 & $-3490.860446$ & $-3490.86$ & $\checkmark$ \\
+HEA & 5 & 16  & $-66.7551$ & $-66.7551$ & $\checkmark$ \\
+HEA & 5 & 128 & $-895.498$ & $-895.498$ & $\checkmark$ \\
+HEA & 5 & 432 & $-3490.86$ & $-3490.86$ & $\checkmark$ \\
 \hline
 Garnet & 5 & 161 & $-108445$ & $-108445$ & $\checkmark$ \\
 \hline
@@ -1068,8 +762,458 @@ Garnet & 5 & 161 & $-108445$ & $-108445$ & $\checkmark$ \\
 \end{frame}
 
 
+\section{Force Computation}
+
+
+\subsection{Overview}
+\begin{frame}{Overview}
+\begin{itemize}
+    \item In DeepMD, atomic forces are obtained from the energy by
+    \begin{equation}
+        \mathbf F_i = -\frac{\partial E_{\text{tot}}}{\partial \mathbf r_i}.
+    \end{equation}
+
+    \item The total energy depends on atomic coordinates through multiple stages:
+    \[
+        \mathbf r 
+        \;\rightarrow\; \hat R
+        \;\rightarrow\; D 
+        % \;\rightarrow\; D 
+        \;\rightarrow\; E.
+    \]
+
+    \item Force evaluation therefore requires a structured application of the chain rule:
+    \begin{equation}
+            \frac{\partial E}{\partial \mathbf r}
+            =
+            \frac{\partial E}{\partial D}
+            \frac{\partial D}{\partial \hat R}
+            \frac{\partial \hat R}{\partial \mathbf r}.
+    \end{equation}
+
+    
+
+    \item HALMD reproduces the DeepMD-v2 derivative pipeline by combining:
+    \begin{itemize}
+        \item automatic differentiation for all neural networks,
+        \item analytic derivatives for geometric and descriptor operations.
+    \end{itemize}
+
+    \item This yields forces that match DeepMD-v2 outputs to floating-point precision.
+\end{itemize}
+\end{frame}
+
+
+\subsection{Automatic differentiation}
+
+\begin{frame}{Automatic Differentiation (AD): How It Works}
+
+\begin{itemize}
+    \item \textbf{Automatic Differentiation (AD)} computes exact derivatives of a program
+    by applying the chain rule to each elementary operation.
+
+    \item Key insight: any computation can be decomposed into simple operations
+    \[
+        +,\; \times,\; \sin,\; \cos,\; \ldots
+    \]
+    and the chain rule is applied locally to each operation.
+
+    \item Example computation:
+    \[
+        z = x\,y + \sin(x)
+    \]
+    is evaluated as a sequence of primitives:
+    \[
+        a = x y, \quad b = \sin(x), \quad z = a + b.
+    \]
+
+    \item AD differentiates this program automatically, without symbolic formulas
+    and without numerical approximations.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{AD: Forward-Mode}
+
+\begin{itemize}
+    \item \textbf{Forward-mode AD}
+    \begin{itemize}
+        \item Propagates derivatives together with values.
+        \item Each variable carries its derivative:
+        \[
+            (x, \dot x),\ (y, \dot y),\ (a, \dot a), \ldots
+        \]
+        \item One program run gives the derivative w.r.t.\ one input.
+        \item Cost scales with number of inputs.
+    \end{itemize}
+
+    % \medskip
+    % \item \textbf{Reverse-mode AD} (backpropagation)
+    % \begin{itemize}
+    %     \item First run computes all intermediate values.
+    %     \item Second run propagates sensitivities backward.
+    %     \item One run yields the full gradient of a scalar output.
+    %     \item Cost scales with number of outputs.
+    % \end{itemize}
+
+    % \medskip
+    % \item This makes reverse-mode AD ideal for
+    % \[
+    %     E = f(\mathbf{x}), \quad \mathbf{x} \in \mathbb{R}^n,
+    % \]
+    % which is exactly the structure of neural networks.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[allowframebreaks]{Forward-Mode AD: Worked Example}
+
+\textbf{Goal:} Compute the derivative of
+\[
+z = x\,y + \sin(x)
+\]
+with respect to $x$.
+
+\medskip
+
+\textbf{Step 1: Decompose computation into primitives}
+\[
+\begin{aligned}
+a &= x\,y \\
+b &= \sin(x) \\
+z &= a + b
+\end{aligned}
+\]
+
+\medskip
+
+\textbf{Step 2: Attach derivatives to every variable}
+\[
+(x,\dot x),\ (y,\dot y),\ (a,\dot a),\ (b,\dot b),\ (z,\dot z)
+\]
+
+Seed the input derivative:
+\[
+\dot x = 1, \qquad \dot y = 0.
+\]
+
+\medskip
+
+\textbf{Step 3: Propagate derivatives using chain rule}
+
+\[
+\begin{aligned}
+a &= x y, & \dot a &= y\,\dot x + x\,\dot y = y \\
+b &= \sin(x), & \dot b &= \cos(x)\,\dot x = \cos(x) \\
+z &= a + b, & \dot z &= \dot a + \dot b = y + \cos(x)
+\end{aligned}
+\]
+
+\medskip
+
+\textbf{Result:}
+\[
+\boxed{
+\frac{\partial z}{\partial x} = y + \cos(x)
+}
+\]
+
+\end{frame}
+
+\begin{frame}{AD: Reverse-Mode}
+    \begin{itemize}
+        \item First run computes all intermediate values.
+        \item Second run propagates sensitivities backward.
+        \item One run yields the full gradient of a scalar output.
+        \item Cost scales with number of outputs.
+    \end{itemize}
+
+\medskip
+    This makes reverse-mode AD ideal for
+    \[
+        E = f(\mathbf{x}), \quad \mathbf{x} \in \mathbb{R}^n,
+    \]
+    which is exactly the structure of neural networks.
+\end{frame}
+
+
+
+\begin{frame}{Automatic Differentiation (AD) in HALMD}
+
+\begin{itemize}
+    \item DeepMD force evaluation requires derivatives through:
+    geometry $\rightarrow$ embedding $\rightarrow$ descriptor $\rightarrow$ fitting network.
+
+    \item \textbf{Analytic derivatives} are used for all geometric operations.
+
+    \item \textbf{Automatic differentiation} is used for all neural networks.
+
+    \medskip
+    \item \textbf{Current HALMD implementation: Forward-mode AD}
+    \begin{itemize}
+        \item Used for embedding networks:
+        \[
+            \hat{s}_{ij} \rightarrow G^i_j, \qquad
+            \frac{\partial G^i_j}{\partial \hat{s}_{ij}}.
+        \]
+        \item Used in fitting network to compute
+        \[
+            \frac{\partial E_i}{\partial D_{i,\alpha}}.
+        \]
+    \end{itemize}
+
+    \medskip
+
+    \medskip
+    \item HALMD uses a \textbf{hybrid strategy}:
+    analytic geometry + AD for neural networks.
+\end{itemize}
+
+\end{frame}
+
+
+
+
+% \begin{frame}[allowframebreaks]{AD: Application in HALMD Force Computation}
+% \begin{itemize}
+%     \item Force computation in DeepMD requires derivatives through geometry,
+%     embedding networks, descriptor construction, and fitting networks.
+
+%     \item Analytic differentiation is feasible for geometric operations i.e $\hat R$.
+%     \item nonlinear activations and residual connections makes challenging in neural networks.
+
+%     \item HALMD therefore uses \textbf{AD: Application in HALMD Force Computation} for all
+%     neural-network components.
+
+%     \item \textbf{Current HALMD implementation: Forward-mode AD}
+%     \begin{itemize}
+%         \item Efficient when the number of inputs is small.
+%         \item Used for embedding networks: 
+%         \[
+%             \hat{s}_{ij} \rightarrow G^i_j, \quad 
+%             \frac{\partial G^i_j}{\partial \hat{s}_{ij}}.
+%         \]
+%         \item Also used to compute 
+%         $\partial E_i / \partial D_{i,\alpha}$ in the fitting network.
+%     \end{itemize}
+
+%     % \item \textbf{Future improvement: Reverse-mode AD}
+%     % \begin{itemize}
+%     %     \item Optimal for scalar outputs with many inputs.
+%     %     \item Would greatly accelerate fitting-network differentiation.
+%     % \end{itemize}
+
+%     \item HALMD uses a \textbf{hybrid approach}:
+%     \begin{itemize}
+%         \item analytic derivatives for geometry,
+%         \item AD for neural networks.
+%     \end{itemize}
+% \end{itemize}
+% \end{frame}
+
+
+
+\subsection{Derivative of geomety matrix $R$}
+\begin{frame}{Derivatives of the Geometry Matrix $R$}
+\begin{itemize}
+    \item Forces require derivatives of each geometry row
+    \begin{equation}
+        \frac{\partial R^{(i)}_{j\alpha}}{\partial \mathbf r_i}.
+    \end{equation}
+
+    \item Each row depends on the relative displacement
+    \begin{equation}
+        \mathbf r_{ij} = \mathbf r_j - \mathbf r_i, \quad
+        r_{ij} = \|\mathbf r_{ij}\|.
+    \end{equation}
+
+    \item Geometry features:
+    \begin{equation}
+        R^{(i)}_{j0} = s(r_{ij}), \qquad
+        R^{(i)}_{j\alpha} = s(r_{ij}) \frac{d_\alpha}{r_{ij}}.
+    \end{equation}
+
+    \item All derivatives follow directly from the multivariate chain rule.
+\end{itemize}
+\end{frame}
+
+
+
+\subsection{Derivative of embedding matrix $G$}
+\begin{frame}{Derivative of the Embedding Matrix $G$}
+\begin{itemize}
+    \item Each embedding row is produced by a species-dependent network:
+    \begin{equation}
+        G^{(i)}_{j:} = N^{(a,b)}_\theta(\hat s_{ij}),
+        \qquad
+        \hat s_{ij} = \hat R^{(i)}_{j0}.
+    \end{equation}
+
+    \item Therefore, $G^{(i)}$ depends on geometry only through
+    the single scalar $\hat s_{ij}$.
+
+    \item Its derivative reduces to a one–dimensional neural-network derivative:
+    \begin{equation}
+        \frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j0}}
+        =
+        \frac{d\, N^{(a,b)}_{\theta,p}}{d \hat s}(\hat s_{ij}),
+        \qquad p = 1,\dots,M.
+    \end{equation}
+
+    \item All other geometric components do \textbf{not} affect $G$:
+    \begin{equation}
+        \frac{\partial G^{(i)}_{jp}}{\partial \hat R^{(i)}_{j\alpha}} = 0,
+        \qquad \alpha \neq 0.
+    \end{equation}
+\end{itemize}
+\end{frame}
+
+
+\subsection{descriptor derivative}
+% \subsection{Descriptor Structure \& Construction}
+
+\begin{frame}{Descriptor Structure and Construction}
+\begin{itemize}
+    \item For each atom $i$, the descriptor is built from:
+    \[
+        \hat R^{(i)} \in \mathbb{R}^{N_c \times 4},
+        \qquad
+        G^{(i)} \in \mathbb{R}^{N_c \times M}.
+    \]
+
+    \item \textbf{Intermediate contraction:}
+    \[
+        C^{(i)} = \frac{1}{N_c} \big(G^{(i)}\big)^{\mathsf T} \hat R^{(i)},
+        \qquad
+        C^{(i)} \in \mathbb{R}^{M \times 4}.
+    \]
+
+    \item \textbf{Quadratic, permutation-invariant descriptor:}
+    \[
+        D^{(i)}_{\mathrm{ext}} = C^{(i)} \big(C^{(i)}\big)^{\mathsf T}
+        \in \mathbb{R}^{M \times M}.
+    \]
+
+    \item \textbf{Truncated descriptor used by the fitting network:}
+    \[
+        D^{(i)} = D^{(i)}_{\mathrm{ext}}[:,1:M']
+        \;=\;
+        C^{(i)} \big(C^{(i)}\big)^{\mathsf T} P
+        \in \mathbb{R}^{M \times M'}.
+    \]
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Descriptor Derivative: Key Structure}
+\begin{itemize}
+    \item Descriptor depends on geometry via two paths:
+    \[
+        \hat R^i \rightarrow C^i \rightarrow D^i,
+        \qquad
+        \hat R^i \rightarrow G^i \rightarrow C^i \rightarrow D^i.
+    \]
+
+    \item Matrix chain rule:
+    \[
+        \frac{\partial\,\mathrm{vec}(D^i)}{\partial\,\mathrm{vec}(\hat R^i)}
+        =
+        \underbrace{
+        \frac{\partial\,\mathrm{vec}(D^i)}{\partial\,\mathrm{vec}(G^i)}
+        \frac{\partial\,\mathrm{vec}(G^i)}{\partial s^i}
+        \frac{\partial s^i}{\partial\,\mathrm{vec}(\hat R^i)}
+        }_{\text{embedding path}}
+        +
+        \underbrace{
+        \frac{\partial\,\mathrm{vec}(D^i)}{\partial\,\mathrm{vec}(\hat R^i)}
+        }_{\text{direct geometry path}}.
+    \]
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Fitting Network Derivative}
+\begin{itemize}
+    \item Atomic energy:
+    \[
+        E^i = \mathrm{NN}_{s_i}\!\bigl(\mathrm{vec}(D^i)\bigr)
+    \]
+
+    \item Jacobian required for forces:
+    \[
+        J^i =
+        \frac{\partial E^i}{\partial D^i}
+        =
+        \frac{\partial E^i}{\partial\,\mathrm{vec}(D^i)}
+        \in \mathbb{R}^{M \times M'}.
+    \]
+
+    \item Deep nonlinear mapping →  
+          \textbf{automatic differentiation (AD)}.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Final Force Assembly}
+\begin{itemize}
+    \item Total force:
+    \[
+        \mathbf F_i = - \sum_j \frac{\partial E^j}{\partial \mathbf r_i}.
+    \]
+
+    \item Final factored force expression:
+    \[
+    \boxed{
+    \mathbf F_i
+    =
+    -\sum_j
+    J^j
+    \Bigg(
+    \underbrace{
+    \frac{\partial\,\mathrm{vec}(D_j)}{\partial\,\mathrm{vec}(G_j)}
+    \frac{\partial\,\mathrm{vec}(G_j)}{\partial s_j}
+    \frac{\partial s_j}{\partial\,\mathrm{vec}(\hat R_j)}
+    }_{\text{via embedding } (\hat R \!\rightarrow\! s \!\rightarrow\! G \!\rightarrow\! D)}
+    +
+    \underbrace{
+    \frac{\partial\,\mathrm{vec}(D_j)}{\partial\,\mathrm{vec}(\hat R_j)}
+    }_{\text{direct geometry } (\hat R \!\rightarrow\! D)}
+    \Bigg)
+    \frac{\partial\,\mathrm{vec}(\hat R_j)}{\partial \mathbf r_i}
+    }
+    \]
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Force Computation: Hybrid Structure}
+\begin{itemize}
+    \item \textbf{Neural part:}
+    \[
+        \frac{\partial\,\mathrm{vec}(D)}{\partial\,\mathrm{vec}(G)},
+        \quad
+        \frac{\partial\,\mathrm{vec}(G)}{\partial s}
+        \quad \text{(via AD)}
+    \]
+
+    \item \textbf{Analytic geometry:}
+    \[
+        \frac{\partial s}{\partial\,\mathrm{vec}(\hat R)},
+        \quad
+        \frac{\partial\,\mathrm{vec}(\hat R)}{\partial \mathbf r}
+    \]
+
+    \item Fully explicit, stable and DeepMD-v2–equivalent force pipeline.
+\end{itemize}
+\end{frame}
+
+
+
+
+
 
 %=====================================================
+
 
 \section{Conclusion}
 
