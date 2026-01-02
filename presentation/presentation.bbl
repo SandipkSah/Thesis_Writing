@@ -114,6 +114,41 @@
       \verb 10.1088/0953-8984/14/4/312
       \endverb
     \endentry
+    \entry{Cu_fcc_slabs_2023}{misc}{}{}
+      \name{author}{3}{}{%
+        {{hash=60bf1ec320d2d4a0d4aee28cc4429423}{%
+           family={Cioni},
+           familyi={C\bibinitperiod},
+           given={Matteo},
+           giveni={M\bibinitperiod}}}%
+        {{hash=b267200e2687e7b39739dfe7c2054d46}{%
+           family={Polino},
+           familyi={P\bibinitperiod},
+           given={Daniela},
+           giveni={D\bibinitperiod}}}%
+        {{hash=f6e7895efdaa58b4e1dd9e7b548570da}{%
+           family={Rapetti},
+           familyi={R\bibinitperiod},
+           given={Daniele},
+           giveni={D\bibinitperiod}}}%
+      }
+      \strng{namehash}{738c8d0fa68bff715ead083a3b113db2}
+      \strng{fullhash}{738c8d0fa68bff715ead083a3b113db2}
+      \strng{fullhashraw}{738c8d0fa68bff715ead083a3b113db2}
+      \strng{bibnamehash}{738c8d0fa68bff715ead083a3b113db2}
+      \strng{authorbibnamehash}{738c8d0fa68bff715ead083a3b113db2}
+      \strng{authornamehash}{738c8d0fa68bff715ead083a3b113db2}
+      \strng{authorfullhash}{738c8d0fa68bff715ead083a3b113db2}
+      \strng{authorfullhashraw}{738c8d0fa68bff715ead083a3b113db2}
+      \field{sortinit}{C}
+      \field{sortinithash}{4d103a86280481745c9c897c925753c0}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{www.aissquare.com/models/detail?pageType=models&name=Cu_fcc_slabs}}
+      \field{note}{Machine-learned interatomic potential trained with DeePMD-kit}
+      \field{title}{{Cu\_fcc\_slabs Deep Potential Model}}
+      \field{year}{2023}
+    \endentry
     \entry{colberg2011highly}{article}{}{}
       \name{author}{2}{}{%
         {{hash=f909c9cf5235125103b43f49fa8cfec3}{%
@@ -332,6 +367,36 @@
       \field{year}{2018}
       \field{pages}{178\bibrangedash 184}
       \range{pages}{7}
+    \endentry
+    \entry{deepmdkit_v2_data}{misc}{}{}
+      \name{author}{2}{}{%
+        {{hash=ecd6ecf0870f9341ac52268eb35d2242}{%
+           family={Zeng},
+           familyi={Z\bibinitperiod},
+           given={Jinzhe},
+           giveni={J\bibinitperiod}}}%
+        {{hash=b6ed01daf082a9382031df5c08afcc82}{%
+           family={Zhang},
+           familyi={Z\bibinitperiod},
+           given={Duo},
+           giveni={D\bibinitperiod}}}%
+      }
+      \strng{namehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{fullhash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{fullhashraw}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{bibnamehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authorbibnamehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authornamehash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authorfullhash}{e4ba52229e452ab4983911eb2d22c9b5}
+      \strng{authorfullhashraw}{e4ba52229e452ab4983911eb2d22c9b5}
+      \field{sortinit}{Z}
+      \field{sortinithash}{96892c0b0a36bb8557c40c49813d48b3}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://github.com/deepmodeling-activity/deepmd-kit-v2-paper}}
+      \field{note}{Supporting data for: DeePMD-kit v2: A software package for deep potential models, J. Chem. Phys., 159, 054801 (2023)}
+      \field{title}{Data for DeePMD-kit v2 paper}
+      \field{year}{2023}
     \endentry
     \entry{zeng2023deepmdv2}{article}{}{}
       \true{moreauthor}

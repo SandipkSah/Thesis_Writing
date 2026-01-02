@@ -11,14 +11,14 @@
 \usepackage{multicol}
 \usepackage{tikz}
 \usepackage{circuitikz}
-\usetikzlibrary{positioning}
+\usetikzlibrary{positioning,shapes,fit,arrows.meta}
 \usepackage[backend=biber,style=numeric]{biblatex}
 
 \usepackage{tikz}
 \usepackage{circuitikz}
 
 % \title[DeepMD–HALMD Integration]{Integration of Deep Potential Molecular Dynamics (DeepMD v2) into HALMD for Multi-Species Alloy Systems}
-\title[DeepMD–HALMD Integration]{Accurate implementation of DeepMD-v2 potential calculation in HALMD for single species, extension to multi-species and Automatic-Differentiation-Based Force Computation}
+\title[HALMD–DeepMD Integration]{Accurate implementation of DeepMD-v2 potential calculation in HALMD for single species, extension to multi-species and Automatic-Differentiation-Based Force Computation}
 
 \author{Sandip Sah}
 \institute{M.Sc. Computational Science, Freie Universität Berlin }
@@ -139,7 +139,7 @@
 
 %=====================================================
 
-\section{Methodology}
+\section{Potential computation}
 \subsection{Overview of Implementation}
 \begin{frame}{Overview of Implementation}
 \begin{itemize}
@@ -690,8 +690,111 @@
 \end{itemize}
 \end{frame}
 
+
+\subsection{summary of potential computation}
+\begin{frame}{summary of potential computation}
+    \begin{tikzpicture}[
+        scale=1.0,
+        every node/.style={transform shape},
+        node distance=0.45cm and 0.5cm,
+        neuron/.style={circle, draw, minimum size=0.35cm, fill=blue!20},
+        box/.style={rectangle, draw, fill=gray!5, text width=2.2cm, align=center, font=\scriptsize, minimum height=0.85cm},
+        arrow/.style={-{Stealth[scale=0.9]}, thick},
+        nn_bg/.style={draw, fill=orange!5, dashed, inner sep=5pt, rounded corners}
+    ]
+
+    % ================= GEOMETRY =================
+    \node[box] (R) {$\hat{R}^i \in \mathbb{R}^{N_c \times 4}$\\Geometry};
+    \node[box, right=of R] (s) {$\hat{s}_{ij} \in \mathbb{R}^{N_c \times 1}$\\Features};
+
+    % ================= EMBEDDING NET =================
+    \begin{scope}[local bounding box=emb_scope]
+
+    \node[neuron, right=1.0cm of s] (embI) {};
+
+    \foreach \i in {1,...,3} {
+    \node[neuron, right=1.1cm of embI, yshift=(2-\i)*0.4cm] (embHone\i) {};
+    }
+
+    \foreach \i in {1,...,3} {
+    \node[neuron, right=1.1cm of embHone1, yshift=(2-\i)*0.4cm] (embHtwo\i) {};
+    }
+
+    \foreach \i in {1,...,2} {
+    \node[neuron, right=1.1cm of embHtwo1, yshift=(1.5-\i)*0.4cm] (embO\i) {};
+    }
+
+    \foreach \h in {1,...,3} { \draw[arrow, thin] (embI) -- (embHone\h); }
+    \foreach \i in {1,...,3} \foreach \j in {1,...,3} { \draw[arrow, thin] (embHone\i) -- (embHtwo\j); }
+    \foreach \i in {1,...,3} \foreach \j in {1,...,2} { \draw[arrow, thin] (embHtwo\i) -- (embO\j); }
+
+    \node[below=2pt of embI, font=\tiny] {$\mathbb{R}^1$};
+    \node[below=2pt of embO2, font=\tiny] {$\mathbb{R}^M$};
+
+    \end{scope}
+
+    \node[nn_bg, fit=(emb_scope), label=above:{Embedding Net $N^{(a,b)}$}] (emb_box) {};
+
+    \node[box, right=of emb_box] (G) {$G^i \in \mathbb{R}^{N_c \times M}$\\Embeddings};
+
+    % ================= DESCRIPTOR =================
+    \node[box, below=2.4cm of G, fill=blue!5] (D) {$\mathrm{vec}(D^i) \in \mathbb{R}^{MM'}$\\Descriptor};
+
+    % ================= FITTING NET =================
+    \begin{scope}[local bounding box=fit_scope]
+
+    \foreach \i in {1,...,2} {
+    \node[neuron, left=2.2cm of D, yshift=(1.5-\i)*0.4cm] (fitI\i) {};
+    }
+
+    \foreach \i in {1,...,3} {
+    \node[neuron, left=1.1cm of fitI1, yshift=(2-\i)*0.4cm] (fitHone\i) {};
+    }
+
+    \foreach \i in {1,...,2} {
+    \node[neuron, left=1.1cm of fitHone1, yshift=(1.5-\i)*0.4cm] (fitHtwo\i) {};
+    }
+
+    \node[neuron, left=1.2cm of fitHtwo1] (fitO) {};
+
+    \foreach \i in {1,...,2} \foreach \j in {1,...,3} { \draw[arrow, thin] (fitI\i) -- (fitHone\j); }
+    \foreach \i in {1,...,3} \foreach \j in {1,...,2} { \draw[arrow, thin] (fitHone\i) -- (fitHtwo\j); }
+    \foreach \i in {1,...,2} { \draw[arrow, thin] (fitHtwo\i) -- (fitO); }
+
+    \node[below=2pt of fitI2, font=\tiny] {$\mathbb{R}^{MM'}$};
+    \node[below=2pt of fitO, font=\tiny] {$\mathbb{R}$};
+
+    \end{scope}
+
+    \node[nn_bg, fit=(fit_scope), label=below:{Fitting Net $\mathrm{NN}_{s_i}$}] (fit_box) {};
+
+    \node[box, left=of fit_box] (Ei) {$E^i \in \mathbb{R}$\\Atomic Energy};
+
+    % ================= CONNECTIONS =================
+    \draw[arrow] (R) -- (s);
+    \draw[arrow] (s) -- (embI);
+    \draw[arrow] (embO1.east) -- ++(0.1,0) |- (G.west);
+    \draw[arrow] (embO2.east) -- ++(0.2,0) |- ($(G.west)+(0,-0.18)$);
+
+    \draw[arrow] (G.south) -- (D.north) node[midway, right, font=\tiny] {Descriptor};
+
+    \draw[arrow] (D.west) -- (fitI1.east);
+    \draw[arrow] (D.west) -- (fitI2.east);
+    % show multiple descriptor channels feeding the fitting net
+    \draw[arrow] ($(D.west)+(0,0.15)$) -- ($(fitI1.east)+(0,0.12)$);
+    \draw[arrow] ($(D.west)-(0,0.15)$) -- ($(fitI2.east)-(0,0.12)$);
+
+    \draw[arrow] (fitO) -- (Ei);
+
+    \draw[arrow, gray, dashed] (R.south) -- ++(0,-1.2) -| ($(D.north)+(0.5,0)$);
+
+    \end{tikzpicture}
+\end{frame}
+
+
+
 \section{Results}
-\subsection{Energy agreement between DeepMD and HALMD}
+\subsection{Energy agreement: DeepMD vs. HALMD}
 
 
 \begin{frame}{Energy Agreement}
@@ -701,10 +804,10 @@
     
     \item Verified for:
     \begin{itemize}
-        \item Cu (Model A),
-        \item HEA,
-        \item Garnet,
-        \item Cu (Model B with different statistics).
+        \item Cu (Model A) \cite{Cu_fcc_slabs_2023},
+        \item HEA \cite{deepmdkit_v2_data},
+        \item Garnet \cite{deepmdkit_v2_data},
+        \item Cu (Model B with different statistics) \cite{deepmdkit_v2_data}.
     \end{itemize}
 
     \item Agreement holds across:
@@ -1240,6 +1343,11 @@ z &= a + b, & \dot z &= \dot a + \dot b = y + \cos(x)
 
 
 
+\newpage
+
+
+
+
 \begin{frame}[allowframebreaks]{References}
 \printbibliography
 \end{frame}
@@ -1250,5 +1358,7 @@ z &= a + b, & \dot z &= \dot a + \dot b = y + \cos(x)
 \centering
 \Huge Thank You!
 \end{frame}
+
+
 
 \end{document}
